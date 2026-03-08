@@ -3,9 +3,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using PolestarApi.Models;
+using NorthStar.Api.Models;
 
-namespace PolestarApi.Services;
+namespace NorthStar.Api.Services;
 
 public class PolestarAuthService
 {

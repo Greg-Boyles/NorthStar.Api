@@ -3,13 +3,14 @@ using System.Text;
 using System.Text.Json;
 using Grpc.Core;
 using Grpc.Net.Client;
-using PolestarApi.Models;
-using ExteriorProtos = PolestarApi.Protos.Exterior;
-using AvailabilityProtos = PolestarApi.Protos.Availability;
-using ClimateProtos = PolestarApi.Protos.ParkingClimatization;
-using BatteryProtos = PolestarApi.Protos.Battery;
+using NorthStar.Api.Models;
+using NorthStar.Services;
+using ExteriorProtos = NorthStar.Api.Protos.Exterior;
+using AvailabilityProtos = NorthStar.Api.Protos.Availability;
+using ClimateProtos = NorthStar.Api.Protos.ParkingClimatization;
+using BatteryProtos = NorthStar.Api.Protos.Battery;
 
-namespace PolestarApi.Services;
+namespace NorthStar.Api.Services;
 
 public class PolestarStatusService
 {

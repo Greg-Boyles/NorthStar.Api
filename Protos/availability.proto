@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "PolestarApi.Protos.Availability";
+option csharp_namespace = "NorthStar.Protos.Availability";
 
 package services.vehiclestates.availability;
 

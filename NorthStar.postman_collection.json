@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "Polestar API",
+    "name": "NorthStar API",
     "description": "API collection for the Polestar backend proxy. Login first to get an access token, then use it for the other endpoints.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },

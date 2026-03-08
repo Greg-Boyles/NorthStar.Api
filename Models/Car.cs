@@ -1,4 +1,4 @@
-namespace PolestarApi.Models;
+namespace NorthStar.Api.Models;
 
 public class Car
 {

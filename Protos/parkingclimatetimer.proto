@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "PolestarApi.Protos.ClimateTimer";
+option csharp_namespace = "NorthStar.Protos.ClimateTimer";
 
 package pccs.chronos.services.v1;
 

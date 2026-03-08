@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "PolestarApi.Protos";
+option csharp_namespace = "NorthStar.Protos";
 
 package services.vehiclestates.odometer;
 

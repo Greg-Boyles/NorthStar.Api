@@ -1,4 +1,5 @@
-using PolestarApi.Services;
+using NorthStar.Api.Services;
+using NorthStar.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

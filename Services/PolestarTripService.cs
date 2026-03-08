@@ -1,10 +1,11 @@
 using Grpc.Core;
 using Grpc.Net.Client;
-using PolestarApi.Models;
-using PolestarApi.Protos;
-using BatteryProtos = PolestarApi.Protos.Battery;
+using NorthStar.Api.Models;
+using NorthStar.Models;
+using NorthStar.Protos;
+using BatteryProtos = NorthStar.Protos.Battery;
 
-namespace PolestarApi.Services;
+namespace NorthStar.Services;
 
 public class PolestarTripService
 {

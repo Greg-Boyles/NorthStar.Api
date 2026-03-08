@@ -1,9 +1,9 @@
 using Grpc.Core;
 using Grpc.Net.Client;
-using PolestarApi.Models;
-using CT = PolestarApi.Protos.ClimateTimer;
+using NorthStar.Api.Models;
+using CT = NorthStar.Api.Protos.ClimateTimer;
 
-namespace PolestarApi.Services;
+namespace NorthStar.Api.Services;
 
 public class PolestarClimateScheduleService
 {

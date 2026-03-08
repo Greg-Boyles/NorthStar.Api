@@ -1,9 +1,9 @@
 using Grpc.Core;
 using Grpc.Net.Client;
-using PolestarApi.Models;
-using ChronosProtos = PolestarApi.Protos.Chronos;
+using NorthStar.Api.Models;
+using ChronosProtos = NorthStar.Api.Protos.Chronos;
 
-namespace PolestarApi.Services;
+namespace NorthStar.Api.Services;
 
 public class PolestarChargingScheduleService
 {
