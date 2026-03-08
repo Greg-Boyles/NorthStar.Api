@@ -1,0 +1,6 @@
+@PolestarApi_HostAddress = http://localhost:5046
+
+GET {{PolestarApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

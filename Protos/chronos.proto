@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+option csharp_namespace = "PolestarApi.Protos.Chronos";
+
+package pccs.chronos.services.v2;
+
+// --- Common entities ---
+
+message TimeZone {
+  int32 offset_minutes = 1;
+}
+
+message DailyTime {
+  int32 hour = 1;
+  int32 minute = 2;
+  TimeZone time_zone = 3;
+}
+
+enum Status {
+  UNKNOWN_ERROR = 0;
+  SENT = 1;
+  DELIVERED = 2;
+  SUCCESS = 3;
+  SYNCED = 4;
+  CAR_OFFLINE = 5;
+  CAR_ERROR = 6;
+  ERROR = 7;
+  REPLACED = 8;
+}
+
+message SyncStatus {
+  Status status = 1;
+  string message = 2;
+}
+
+message Metadata {
+  string id = 1;
+  int64 updated_at = 2;
+  string source = 3;
+  SyncStatus sync_status = 4;
+  int64 source_timestamp = 5;
+}
+
+// --- Global Charge Timer ---
+
+message GlobalChargeTimer {
+  DailyTime start = 1;
+  DailyTime stop = 2;
+  bool activated = 3;
+  Metadata metadata = 4;
+}
+
+// --- Request / Response ---
+
+message ChronosRequest {
+  string id = 1;
+  string vin = 2;
+  string source = 3;
+  TimeZone time_zone = 4;
+}
+
+message GetGlobalChargeTimerRequest {
+  ChronosRequest request = 1;
+}
+
+message GetGlobalChargeTimerResponse {
+  GlobalChargeTimer global_charge_timer = 1;
+  GlobalChargeTimer pending_global_charge_timer = 2;
+  int64 updated_at = 3;
+}
+
+message SetGlobalChargeTimerRequest {
+  ChronosRequest request = 1;
+  GlobalChargeTimer global_charge_timer = 2;
+}
+
+message SetGlobalChargeTimerResponse {
+  Metadata metadata = 1;
+}
+
+// --- Service ---
+
+service GlobalChargeTimerService {
+  rpc GetGlobalChargeTimerStream (GetGlobalChargeTimerRequest) returns (stream GetGlobalChargeTimerResponse);
+  rpc SetGlobalChargeTimer (SetGlobalChargeTimerRequest) returns (SetGlobalChargeTimerResponse);
+}

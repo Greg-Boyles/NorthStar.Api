@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+option csharp_namespace = "PolestarApi.Protos.ClimateTimer";
+
+package pccs.chronos.services.v1;
+
+// --- Common types ---
+
+message TimeZone {
+  int32 offset_minutes = 1;
+}
+
+message DailyTime {
+  int32 hour = 1;
+  int32 minute = 2;
+  TimeZone time_zone = 3;
+}
+
+message Date {
+  int32 year = 1;
+  int32 month = 2;
+  int32 day = 3;
+}
+
+enum Weekday {
+  UNSPECIFIED = 0;
+  MONDAY = 1;
+  TUESDAY = 2;
+  WEDNESDAY = 3;
+  THURSDAY = 4;
+  FRIDAY = 5;
+  SATURDAY = 6;
+  SUNDAY = 7;
+}
+
+enum Status {
+  UNKNOWN_ERROR = 0;
+  SENT = 1;
+  DELIVERED = 2;
+  SUCCESS = 3;
+  SYNCED = 4;
+  CAR_OFFLINE = 5;
+  CAR_ERROR = 6;
+  ERROR = 7;
+  REPLACED = 8;
+}
+
+enum Intensity {
+  I_UNDEFINED = 0;
+  I_OFF = 1;
+  I_LEVEL1 = 2;
+  I_LEVEL2 = 3;
+  I_LEVEL3 = 4;
+}
+
+enum BatteryPreconditioning {
+  BP_UNDEFINED = 0;
+  BP_OFF = 1;
+  BP_WHEN_PLUGGED = 2;
+  BP_ON = 3;
+}
+
+// --- Metadata ---
+
+message SyncStatus {
+  Status status = 1;
+  string message = 2;
+}
+
+message Metadata {
+  string id = 1;
+  int64 updated_at = 2;
+  string source = 3;
+  SyncStatus sync_status = 4;
+  int64 source_timestamp = 5;
+}
+
+// --- Request wrapper ---
+
+message ChronosRequest {
+  string id = 1;
+  string vin = 2;
+  string source = 3;
+  TimeZone time_zone = 4;
+}
+
+// --- Timer ---
+
+message ParkingClimateTimer {
+  string timer_id = 1;
+  int32 index = 2;
+  DailyTime ready_at = 3;
+  bool activated = 4;
+  bool repeat = 5;
+  repeated Weekday weekdays = 6;
+  Metadata metadata = 7;
+  Date start_date = 8;
+}
+
+// --- Timer Settings ---
+
+message SeatHeatingIntensity {
+  Intensity front_row_left_seat = 1;
+  Intensity front_row_right_seat = 2;
+  Intensity rear_row_left_seat = 3;
+  Intensity rear_row_right_seat = 4;
+}
+
+message TimerSettings {
+  SeatHeatingIntensity seat_heating_intensity = 1;
+  Intensity steering_wheel_heating_intensity = 2;
+  float requested_compartment_temperature_celsius = 3;
+  bool is_compartment_temperature_requested = 4;
+  BatteryPreconditioning battery_preconditioning = 5;
+}
+
+// --- GetTimers ---
+
+message GetParkingClimateTimersRequest {
+  ChronosRequest request = 1;
+}
+
+message GetParkingClimateTimersResponse {
+  string id = 1;
+  string vin = 2;
+  repeated ParkingClimateTimer parking_climate_timers = 3;
+  repeated ParkingClimateTimer pending_parking_climate_timers = 4;
+  repeated ParkingClimateTimer pending_delete_parking_climate_timers = 5;
+  int64 updated_at = 6;
+}
+
+// --- GetTimerSettings ---
+
+message GetParkingClimateTimerSettingsRequest {
+  ChronosRequest request = 1;
+}
+
+message GetParkingClimateTimerSettingsResponse {
+  TimerSettings timer_settings = 1;
+  TimerSettings pending_timer_settings = 2;
+  int64 updated_at = 3;
+}
+
+// --- Service ---
+
+service ParkingClimateTimerService {
+  rpc GetTimers (GetParkingClimateTimersRequest) returns (stream GetParkingClimateTimersResponse);
+  rpc GetTimerSettings (GetParkingClimateTimerSettingsRequest) returns (stream GetParkingClimateTimerSettingsResponse);
+}

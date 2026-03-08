@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option csharp_namespace = "PolestarApi.Protos";
+
+package services.vehiclestates.odometer;
+
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanos = 2;
+}
+
+message Odometer {
+  Timestamp timestamp = 1;
+  int32 odometer_meters = 2;
+  float trip_meter_manual_km = 3;
+  float trip_meter_automatic_km = 4;
+  int32 average_speed_km_per_hour = 5;
+  int32 average_speed_km_per_hour_automatic = 6;
+  float trip_meter_since_charge_km = 7;
+  int32 average_speed_km_per_hour_since_charge = 8;
+}
+
+message GetOdometerRequest {
+  string id = 1;
+  string vin = 2;
+}
+
+message GetOdometerResponse {
+  string id = 1;
+  string vin = 2;
+  Odometer odometer = 3;
+}
+
+service OdometerService {
+  rpc GetOdometer (GetOdometerRequest) returns (stream GetOdometerResponse);
+}

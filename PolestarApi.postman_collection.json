@@ -1,0 +1,205 @@
+{
+  "info": {
+    "name": "Polestar API",
+    "description": "API collection for the Polestar backend proxy. Login first to get an access token, then use it for the other endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7261",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "vin",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "    console.log('Token saved. Expires in ' + json.expiresIn + 's');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"your@email.com\",\n    \"password\": \"yourpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticate with Polestar ID. The access token is automatically saved to the collection variable `accessToken` for use in subsequent requests."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cars",
+      "item": [
+        {
+          "name": "Get Cars",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.length > 0 && json[0].vin) {",
+                  "        pm.collectionVariables.set('vin', json[0].vin);",
+                  "        console.log('VIN saved: ' + json[0].vin);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cars",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cars"]
+            },
+            "description": "Get all cars for the authenticated user. Returns car details, battery status, and odometer. The first car's VIN is automatically saved to the `vin` collection variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Battery",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cars/{{vin}}/battery",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cars", "{{vin}}", "battery"]
+            },
+            "description": "Get battery and charging status for a specific car. Returns charge level, range, charging status, power, consumption averages, and total energy consumption."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Trip Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cars/{{vin}}/trips",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cars", "{{vin}}", "trips"]
+            },
+            "description": "Get trip/odometer data for a specific car. Returns odometer, Trip Auto (TA - last trip), Trip Manual (TM - since reset), and Trip Since Charge with both km and miles."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Vehicle Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cars/{{vin}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cars", "{{vin}}", "status"]
+            },
+            "description": "Get comprehensive vehicle status. Returns exterior (locks, doors, windows, alarm), availability (online/usage mode), climate (parking climatization, seat heating, temps), battery (charge, charging status), and health (service warnings, fluid levels). All services are queried in parallel; sections may be null if a service is unavailable."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Charging Schedule",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cars/{{vin}}/charging-schedule",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cars", "{{vin}}", "charging-schedule"]
+            },
+            "description": "Get the global charge timer schedule for a specific car. Returns the active charging window (start/stop times with timezone), whether it's activated, and any pending schedule changes not yet synced to the car. Uses the PCCS Chronos gRPC service."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Climate Schedule",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cars/{{vin}}/climate-schedule",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cars", "{{vin}}", "climate-schedule"]
+            },
+            "description": "Get parking climatization timer schedule and settings. Returns configured timers (ready-at time, weekdays, repeat, activation), climate settings (target temperature, seat heating per seat, steering wheel heating, battery preconditioning), and any pending changes not yet synced to the car."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
