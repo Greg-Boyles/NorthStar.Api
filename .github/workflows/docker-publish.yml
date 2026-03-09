@@ -103,7 +103,7 @@ jobs:
     environment: production
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -140,6 +140,11 @@ jobs:
             --cluster northstar-api-cluster \
             --services northstar-api-service \
             --region ${{ env.AWS_REGION }}
+
+      - name: Tag release
+        run: |
+          git tag v${{ needs.version.outputs.semver }}
+          git push origin v${{ needs.version.outputs.semver }}
 
       - name: Get API URL
         id: api-url
