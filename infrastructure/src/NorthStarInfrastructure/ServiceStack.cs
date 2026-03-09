@@ -24,6 +24,7 @@ namespace NorthStarInfrastructure
         internal ServiceStack(Construct scope, string id, ServiceStackProps props) : base(scope, id, props)
         {
             var repository = props.Repository;
+            var imageTag = (string)this.Node.TryGetContext("imageTag") ?? "latest";
 
             // VPC - Use default VPC to stay within free tier
             var vpc = Vpc.FromLookup(this, "DefaultVPC", new VpcLookupOptions
@@ -59,7 +60,7 @@ namespace NorthStarInfrastructure
 
                 TaskImageOptions = new ApplicationLoadBalancedTaskImageOptions
                 {
-                    Image = ContainerImage.FromEcrRepository(repository, "latest"),
+                    Image = ContainerImage.FromEcrRepository(repository, imageTag),
                     ContainerName = "northstar-api",
                     ContainerPort = 8080,
 

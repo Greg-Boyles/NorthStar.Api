@@ -98,6 +98,13 @@ namespace NorthStarInfrastructure
                                     Sid = "CloudFormationRead",
                                     Actions = new[] { "cloudformation:DescribeStacks" },
                                     Resources = new[] { $"arn:aws:cloudformation:{Region}:{Account}:stack/NorthStarServiceStack/*" }
+                                }),
+                                // CDK deploy - assume bootstrap roles
+                                new PolicyStatement(new PolicyStatementProps
+                                {
+                                    Sid = "CDKBootstrapRoles",
+                                    Actions = new[] { "sts:AssumeRole" },
+                                    Resources = new[] { $"arn:aws:iam::{Account}:role/cdk-hnb659fds-*-{Account}-{Region}" }
                                 })
                             }
                         })

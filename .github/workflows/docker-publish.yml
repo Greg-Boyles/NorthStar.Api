@@ -95,3 +95,83 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "### Published :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "Image: \`$ECR_REGISTRY/$ECR_REPOSITORY:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: [version, publish]
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install CDK
+        run: npm install -g aws-cdk
+
+      - name: Deploy Service Stack
+        working-directory: infrastructure
+        run: |
+          cdk deploy NorthStarServiceStack \
+            -c imageTag=${{ needs.version.outputs.semver }} \
+            --require-approval never
+
+      - name: Wait for ECS service to stabilise
+        run: |
+          aws ecs wait services-stable \
+            --cluster northstar-api-cluster \
+            --services northstar-api-service \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Get API URL
+        id: api-url
+        run: |
+          LB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name NorthStarServiceStack \
+            --query "Stacks[0].Outputs[?OutputKey=='LoadBalancerDNS'].OutputValue" \
+            --output text \
+            --region ${{ env.AWS_REGION }})
+          echo "url=http://$LB_DNS" >> $GITHUB_OUTPUT
+          echo "### Deployed :white_check_mark:" >> $GITHUB_STEP_SUMMARY
+          echo "API: http://$LB_DNS" >> $GITHUB_STEP_SUMMARY
+          echo "Version: ${{ needs.version.outputs.semver }}" >> $GITHUB_STEP_SUMMARY
+
+    outputs:
+      api-url: ${{ steps.api-url.outputs.url }}
+
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Health check
+        run: |
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ needs.deploy.outputs.api-url }}/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: status $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
