@@ -81,7 +81,7 @@ public class PolestarStatusService
 
     // --- Exterior ---
 
-    private static async Task<ExteriorStatus?> GetExteriorAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public static async Task<ExteriorStatus?> GetExteriorAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new ExteriorProtos.ExteriorService.ExteriorServiceClient(channel);
         var request = new ExteriorProtos.GetExteriorRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -112,7 +112,7 @@ public class PolestarStatusService
 
     // --- Availability ---
 
-    private static async Task<AvailabilityInfo?> GetAvailabilityAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public static async Task<AvailabilityInfo?> GetAvailabilityAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new AvailabilityProtos.AvailabilityService.AvailabilityServiceClient(channel);
         var request = new AvailabilityProtos.GetAvailabilityRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -131,7 +131,7 @@ public class PolestarStatusService
 
     // --- Climate ---
 
-    private static async Task<ClimateStatus?> GetClimateAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public static async Task<ClimateStatus?> GetClimateAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new ClimateProtos.ParkingClimatizationService.ParkingClimatizationServiceClient(channel);
         var request = new ClimateProtos.GetParkingClimatizationRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -176,7 +176,7 @@ public class PolestarStatusService
 
     // --- Battery ---
 
-    private static async Task<BatteryStatus?> GetBatteryAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public static async Task<BatteryStatus?> GetBatteryAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new BatteryProtos.BatteryService.BatteryServiceClient(channel);
         var request = new BatteryProtos.GetBatteryRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -201,7 +201,7 @@ public class PolestarStatusService
 
     // --- Health (GraphQL) ---
 
-    private async Task<HealthStatus?> GetHealthAsync(string accessToken, string vin, CancellationToken ct)
+    public async Task<HealthStatus?> GetHealthAsync(string accessToken, string vin, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -241,6 +241,26 @@ public class PolestarStatusService
         }
 
         return null;
+    }
+
+    /// <summary>Map raw battery proto to BatteryStatus model (for status section).</summary>
+    public static BatteryStatus? MapBatteryStatus(BatteryProtos.Battery? b)
+    {
+        if (b == null) return null;
+
+        return new BatteryStatus
+        {
+            Timestamp = ToDateTime(b.Timestamp),
+            ChargeLevelPercentage = Math.Round(b.BatteryChargeLevelPercentage, 1),
+            EstimatedRangeKm = b.EstimatedDistanceToEmptyKm,
+            EstimatedRangeMiles = b.EstimatedDistanceToEmptyMiles,
+            ChargingStatus = FormatChargingStatus(b.ChargingStatus),
+            ChargerConnectionStatus = FormatChargerConnection(b.ChargerConnectionStatus),
+            ChargingPowerWatts = b.ChargingPowerWatts,
+            ChargingCurrentAmps = b.ChargingCurrentAmps,
+            ChargingVoltageVolts = b.ChargingVoltageVolts,
+            EstimatedChargingTimeToFullMinutes = b.EstimatedChargingTimeToFullMinutes
+        };
     }
 
     // --- Formatting helpers ---

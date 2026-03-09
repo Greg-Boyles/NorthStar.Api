@@ -18,6 +18,7 @@ builder.Services.AddScoped<PolestarTripService>();
 builder.Services.AddScoped<PolestarStatusService>();
 builder.Services.AddScoped<PolestarChargingScheduleService>();
 builder.Services.AddScoped<PolestarClimateScheduleService>();
+builder.Services.AddScoped<VehicleSnapshotService>();
 
 var app = builder.Build();
 

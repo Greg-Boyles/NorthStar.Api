@@ -151,6 +151,81 @@ public class PolestarTripService
         };
     }
 
+    /// <summary>Map raw battery proto to BatteryData model.</summary>
+    public BatteryData MapBatteryData(string vin, BatteryProtos.Battery battery)
+    {
+        var timestamp = battery.Timestamp != null
+            ? DateTimeOffset.FromUnixTimeSeconds(battery.Timestamp.Seconds).UtcDateTime
+            : (DateTime?)null;
+
+        return new BatteryData
+        {
+            Vin = vin,
+            Timestamp = timestamp,
+            ChargeLevelPercentage = Math.Round(battery.BatteryChargeLevelPercentage, 1),
+            EstimatedRangeKm = battery.EstimatedDistanceToEmptyKm,
+            EstimatedRangeMiles = battery.EstimatedDistanceToEmptyMiles,
+            ChargingStatus = FormatChargingStatus(battery.ChargingStatus),
+            ChargerConnectionStatus = FormatChargerConnection(battery.ChargerConnectionStatus),
+            ChargingPowerWatts = battery.ChargingPowerWatts,
+            ChargingCurrentAmps = battery.ChargingCurrentAmps,
+            ChargingVoltageVolts = battery.ChargingVoltageVolts,
+            EstimatedChargingTimeToFullMinutes = battery.EstimatedChargingTimeToFullMinutes,
+            AverageConsumptionKwhPer100Km = Math.Round(battery.AverageEnergyConsumptionKwhPer100Km, 1),
+            AverageConsumptionKwhPer100KmAutomatic = Math.Round(battery.AverageEnergyConsumptionKwhPer100KmAutomatic, 1),
+            AverageConsumptionKwhPer100KmSinceCharge = Math.Round(battery.AverageEnergyConsumptionKwhPer100KmSinceCharge, 1),
+            TotalEnergyConsumptionWh = Math.Round(battery.TotalEnergyConsumptionWh, 1),
+            TotalEnergyConsumptionWhAutomatic = Math.Round(battery.TotalEnergyConsumptionWhAutomatic, 1),
+            TotalEnergyConsumptionWhSinceCharge = Math.Round(battery.TotalEnergyConsumptionWhSinceCharge, 1)
+        };
+    }
+
+    /// <summary>Map raw odometer + battery protos to TripData model.</summary>
+    public TripData? MapTripData(string vin, Odometer? odo, BatteryProtos.Battery? battery)
+    {
+        if (odo == null) return null;
+
+        var timestamp = odo.Timestamp != null
+            ? DateTimeOffset.FromUnixTimeSeconds(odo.Timestamp.Seconds).UtcDateTime
+            : (DateTime?)null;
+
+        return new TripData
+        {
+            Vin = vin,
+            Timestamp = timestamp,
+            OdometerMeters = odo.OdometerMeters,
+            OdometerKm = Math.Round(odo.OdometerMeters / 1000.0, 1),
+            OdometerMiles = Math.Round(odo.OdometerMeters / 1609.344, 1),
+            TripAuto = new TripMeter
+            {
+                DistanceKm = Math.Round(odo.TripMeterAutomaticKm, 1),
+                DistanceMiles = Math.Round(odo.TripMeterAutomaticKm * 0.621371, 1),
+                AverageSpeedKmh = odo.AverageSpeedKmPerHourAutomatic,
+                AverageSpeedMph = Math.Round(odo.AverageSpeedKmPerHourAutomatic * 0.621371, 1),
+                AverageConsumptionKwhPer100Km = Math.Round(battery?.AverageEnergyConsumptionKwhPer100KmAutomatic ?? 0, 1),
+                AverageConsumptionKwhPer100Miles = Math.Round((battery?.AverageEnergyConsumptionKwhPer100KmAutomatic ?? 0) * 1.60934, 1)
+            },
+            TripManual = new TripMeter
+            {
+                DistanceKm = Math.Round(odo.TripMeterManualKm, 1),
+                DistanceMiles = Math.Round(odo.TripMeterManualKm * 0.621371, 1),
+                AverageSpeedKmh = odo.AverageSpeedKmPerHour,
+                AverageSpeedMph = Math.Round(odo.AverageSpeedKmPerHour * 0.621371, 1),
+                AverageConsumptionKwhPer100Km = Math.Round(battery?.AverageEnergyConsumptionKwhPer100Km ?? 0, 1),
+                AverageConsumptionKwhPer100Miles = Math.Round((battery?.AverageEnergyConsumptionKwhPer100Km ?? 0) * 1.60934, 1)
+            },
+            TripSinceCharge = new TripMeter
+            {
+                DistanceKm = Math.Round(odo.TripMeterSinceChargeKm, 1),
+                DistanceMiles = Math.Round(odo.TripMeterSinceChargeKm * 0.621371, 1),
+                AverageSpeedKmh = odo.AverageSpeedKmPerHourSinceCharge,
+                AverageSpeedMph = Math.Round(odo.AverageSpeedKmPerHourSinceCharge * 0.621371, 1),
+                AverageConsumptionKwhPer100Km = Math.Round(battery?.AverageEnergyConsumptionKwhPer100KmSinceCharge ?? 0, 1),
+                AverageConsumptionKwhPer100Miles = Math.Round((battery?.AverageEnergyConsumptionKwhPer100KmSinceCharge ?? 0) * 1.60934, 1)
+            }
+        };
+    }
+
     private static string FormatChargingStatus(int status) => status switch
     {
         1 => "Charging",

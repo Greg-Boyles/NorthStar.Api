@@ -13,14 +13,16 @@ public class CarsController : ControllerBase
     private readonly PolestarStatusService _statusService;
     private readonly PolestarChargingScheduleService _chargingScheduleService;
     private readonly PolestarClimateScheduleService _climateScheduleService;
+    private readonly VehicleSnapshotService _snapshotService;
 
-    public CarsController(PolestarCarService carService, PolestarTripService tripService, PolestarStatusService statusService, PolestarChargingScheduleService chargingScheduleService, PolestarClimateScheduleService climateScheduleService)
+    public CarsController(PolestarCarService carService, PolestarTripService tripService, PolestarStatusService statusService, PolestarChargingScheduleService chargingScheduleService, PolestarClimateScheduleService climateScheduleService, VehicleSnapshotService snapshotService)
     {
         _carService = carService;
         _tripService = tripService;
         _statusService = statusService;
         _chargingScheduleService = chargingScheduleService;
         _climateScheduleService = climateScheduleService;
+        _snapshotService = snapshotService;
     }
 
     /// <summary>
@@ -184,6 +186,32 @@ public class CarsController : ControllerBase
         catch (OperationCanceledException)
         {
             return StatusCode(504, new { error = "Timeout waiting for climate schedule data" });
+        }
+    }
+
+    /// <summary>
+    /// Get a unified snapshot of all vehicle data in a single request.
+    /// Reduces upstream API calls by sharing gRPC channels and deduplicating battery queries.
+    /// </summary>
+    [HttpGet("{vin}/snapshot")]
+    public async Task<ActionResult<VehicleSnapshot>> GetSnapshot(string vin, CancellationToken ct)
+    {
+        var token = ExtractBearerToken();
+        if (token == null)
+            return Unauthorized(new { error = "Missing or invalid Authorization header. Use: Bearer <token>" });
+
+        try
+        {
+            var snapshot = await _snapshotService.GetSnapshotAsync(token, vin, ct);
+            return Ok(snapshot);
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            return StatusCode(502, new { error = "gRPC call to vehicle service failed", detail = ex.Status.Detail, code = ex.StatusCode.ToString() });
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(504, new { error = "Timeout waiting for vehicle data (car may be asleep)" });
         }
     }
 
