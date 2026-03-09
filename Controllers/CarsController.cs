@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using NorthStar.Api.Models;
 using NorthStar.Api.Services;
-using NorthStar.Api.Services;
 
 namespace NorthStar.Api.Controllers;
 

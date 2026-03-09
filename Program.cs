@@ -1,5 +1,4 @@
 using NorthStar.Api.Services;
-using NorthStar.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

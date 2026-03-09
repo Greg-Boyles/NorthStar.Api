@@ -1,7 +1,6 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using NorthStar.Api.Models;
-using NorthStar.Api.Models;
 using NorthStar.Api.Protos;
 using BatteryProtos = NorthStar.Api.Protos.Battery;
 

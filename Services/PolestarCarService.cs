@@ -2,7 +2,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using NorthStar.Api.Models;
-using NorthStar.Api.Models;
 
 namespace NorthStar.Api.Services;
 
