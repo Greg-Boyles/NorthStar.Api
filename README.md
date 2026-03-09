@@ -46,7 +46,7 @@ A .NET 8 Web API that provides a unified REST interface to Polestar car APIs. No
 ### Running the API
 
 ```bash
-dotnet run
+dotnet run --project src/NorthStar.Api.csproj
 ```
 
 The API will start at `https://localhost:7261`
@@ -108,28 +108,24 @@ Proto files define gRPC contracts:
 
 ```
 NorthStar.Api/
-├── Controllers/
-│   ├── AuthController.cs          # OIDC authentication
-│   └── CarsController.cs           # All car endpoints
-├── Models/
-│   ├── Car.cs                      # Car and telematics models
-│   ├── TripData.cs                 # Trip/odometer models
-│   ├── VehicleStatus.cs            # Comprehensive status models
-│   ├── ChargingSchedule.cs         # Charge timer models
-│   └── ClimateSchedule.cs          # Climate timer models
-├── Services/
-│   ├── PolestarAuthService.cs      # OIDC/PKCE flow
-│   ├── PolestarCarService.cs       # GraphQL queries
-│   ├── PolestarTripService.cs      # Odometer + battery gRPC
-│   ├── PolestarStatusService.cs    # Multi-service status aggregation
-│   ├── PolestarChargingScheduleService.cs  # Charge timer gRPC
-│   └── PolestarClimateScheduleService.cs   # Climate timer gRPC
-├── Protos/                         # gRPC proto definitions
-├── infrastructure/                 # AWS CDK deployment
-│   ├── src/                        # CDK C# code
-│   ├── deploy.sh                   # Automated deployment script
-│   └── README.md                   # Deployment documentation
-└── Dockerfile                      # Container image definition
+├── src/                            # API source code
+│   ├── Controllers/
+│   │   ├── AuthController.cs       # OIDC authentication
+│   │   └── CarsController.cs       # All car endpoints
+│   ├── Models/                     # Request/response models
+│   ├── Services/                   # Polestar API integrations
+│   ├── Protos/                     # gRPC proto definitions
+│   ├── NorthStar.Api.csproj
+│   └── Dockerfile
+├── infrastructure/                 # AWS CDK stacks
+│   ├── src/NorthStarInfrastructure/
+│   │   ├── RepositoryStack.cs      # ECR repository
+│   │   ├── ServiceStack.cs         # ECS Fargate + ALB
+│   │   └── CiCdStack.cs            # GitHub OIDC + IAM role
+│   └── deploy.sh
+├── .github/workflows/              # CI/CD pipeline
+├── GitVersion.yml                  # Semantic versioning config
+└── README.md
 ```
 
 ## Deployment
