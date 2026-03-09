@@ -5,6 +5,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add controllers
 builder.Services.AddControllers();
 
+// Add health checks
+builder.Services.AddHealthChecks();
+
 // Add HttpClient factory
 builder.Services.AddHttpClient();
 
@@ -20,8 +23,8 @@ var app = builder.Build();
 
 app.UseHttpsRedirection();
 
-// Health check endpoint for ALB
-app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+// Health check endpoint
+app.MapHealthChecks("/health");
 
 app.MapControllers();
 
