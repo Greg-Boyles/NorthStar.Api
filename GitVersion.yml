@@ -4,12 +4,12 @@ branches:
   main:
     regex: ^main$
     increment: Patch
-    tag: ""
+    label: ""
   feature:
     regex: ^features?[/-]
     increment: Minor
-    tag: alpha.{BranchName}
+    label: alpha.{BranchName}
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
     increment: Inherit
-    tag: pr.{BranchName}
+    label: pr.{BranchName}
