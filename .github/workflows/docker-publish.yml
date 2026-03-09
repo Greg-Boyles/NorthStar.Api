@@ -53,10 +53,10 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore NorthStar.Api.csproj
+        run: dotnet restore src/NorthStar.Api.csproj
 
       - name: Build
-        run: dotnet build NorthStar.Api.csproj --no-restore --configuration Release /p:Version=${{ needs.version.outputs.semver }}
+        run: dotnet build src/NorthStar.Api.csproj --no-restore --configuration Release /p:Version=${{ needs.version.outputs.semver }}
 
   publish:
     name: Publish Docker Image
@@ -85,7 +85,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           VERSION: ${{ needs.version.outputs.semver }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION src/
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
