@@ -124,8 +124,33 @@ NorthStar.Api/
 │   ├── PolestarStatusService.cs    # Multi-service status aggregation
 │   ├── PolestarChargingScheduleService.cs  # Charge timer gRPC
 │   └── PolestarClimateScheduleService.cs   # Climate timer gRPC
-└── Protos/                         # gRPC proto definitions
+├── Protos/                         # gRPC proto definitions
+├── infrastructure/                 # AWS CDK deployment
+│   ├── src/                        # CDK C# code
+│   ├── deploy.sh                   # Automated deployment script
+│   └── README.md                   # Deployment documentation
+└── Dockerfile                      # Container image definition
 ```
+
+## Deployment
+
+### AWS Fargate Deployment
+
+The `infrastructure/` directory contains AWS CDK code for deploying to AWS Fargate:
+
+```bash
+cd infrastructure
+./deploy.sh
+```
+
+This will:
+1. Deploy infrastructure (ECS Fargate, ALB, ECR, Secrets Manager)
+2. Build and push Docker image
+3. Deploy the service
+
+See [infrastructure/README.md](infrastructure/README.md) for details.
+
+**Estimated cost:** $16-50/month (mostly Application Load Balancer)
 
 ## Notes
 

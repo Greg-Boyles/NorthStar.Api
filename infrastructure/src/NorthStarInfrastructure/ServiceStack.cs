@@ -1,0 +1,128 @@
+using System.Collections.Generic;
+using Amazon.CDK;
+using Amazon.CDK.AWS.EC2;
+using Amazon.CDK.AWS.ECS;
+using Amazon.CDK.AWS.ECS.Patterns;
+using Amazon.CDK.AWS.ECR;
+using Amazon.CDK.AWS.SecretsManager;
+using Amazon.CDK.AWS.ElasticLoadBalancingV2;
+using Amazon.CDK.AWS.ApplicationAutoScaling;
+using Constructs;
+using SecretsManagerSecret = Amazon.CDK.AWS.SecretsManager.Secret;
+using EcsSecret = Amazon.CDK.AWS.ECS.Secret;
+using ElbHealthCheck = Amazon.CDK.AWS.ElasticLoadBalancingV2.HealthCheck;
+
+namespace NorthStarInfrastructure
+{
+    public class ServiceStackProps : StackProps
+    {
+        public IRepository Repository { get; set; }
+    }
+
+    public class ServiceStack : Stack
+    {
+        internal ServiceStack(Construct scope, string id, ServiceStackProps props) : base(scope, id, props)
+        {
+            var repository = props.Repository;
+
+            // VPC - Use default VPC to stay within free tier
+            var vpc = Vpc.FromLookup(this, "DefaultVPC", new VpcLookupOptions
+            {
+                IsDefault = true
+            });
+
+            // ECS Cluster
+            var cluster = new Cluster(this, "NorthStarCluster", new ClusterProps
+            {
+                Vpc = vpc,
+                ClusterName = "northstar-api-cluster"
+            });
+
+            // Secrets Manager for Polestar credentials
+            var polestarSecret = new SecretsManagerSecret(this, "PolestarCredentials", new SecretProps
+            {
+                SecretName = "northstar/polestar-credentials",
+                Description = "Polestar account credentials for NorthStar API",
+                GenerateSecretString = new SecretStringGenerator
+                {
+                    SecretStringTemplate = "{\"email\":\"\",\"password\":\"\"}",
+                    GenerateStringKey = "dummy"
+                }
+            });
+
+            // Fargate Service with Application Load Balancer
+            var fargateService = new ApplicationLoadBalancedFargateService(this, "NorthStarService", new ApplicationLoadBalancedFargateServiceProps
+            {
+                Cluster = cluster,
+                ServiceName = "northstar-api-service",
+                DesiredCount = 1,
+
+                TaskImageOptions = new ApplicationLoadBalancedTaskImageOptions
+                {
+                    Image = ContainerImage.FromEcrRepository(repository, "latest"),
+                    ContainerName = "northstar-api",
+                    ContainerPort = 8080,
+
+                    Environment = new Dictionary<string, string>
+                    {
+                        { "ASPNETCORE_ENVIRONMENT", "Production" },
+                        { "ASPNETCORE_URLS", "http://+:8080" },
+                    },
+
+                    Secrets = new Dictionary<string, EcsSecret>
+                    {
+                        { "POLESTAR_EMAIL", EcsSecret.FromSecretsManager(polestarSecret, "email") },
+                        { "POLESTAR_PASSWORD", EcsSecret.FromSecretsManager(polestarSecret, "password") }
+                    }
+                },
+
+                Cpu = 256,
+                MemoryLimitMiB = 512,
+
+                PublicLoadBalancer = true,
+                AssignPublicIp = true,
+
+                HealthCheckGracePeriod = Duration.Seconds(60)
+            });
+
+            // Health check
+            fargateService.TargetGroup.ConfigureHealthCheck(new ElbHealthCheck
+            {
+                Path = "/health",
+                Interval = Duration.Seconds(30),
+                Timeout = Duration.Seconds(5),
+                HealthyThresholdCount = 2,
+                UnhealthyThresholdCount = 3
+            });
+
+            // Auto-scaling
+            var scaling = fargateService.Service.AutoScaleTaskCount(new EnableScalingProps
+            {
+                MinCapacity = 1,
+                MaxCapacity = 2
+            });
+
+            scaling.ScaleOnCpuUtilization("CpuScaling", new CpuUtilizationScalingProps
+            {
+                TargetUtilizationPercent = 70,
+                ScaleInCooldown = Duration.Seconds(60),
+                ScaleOutCooldown = Duration.Seconds(60)
+            });
+
+            // Outputs
+            _ = new CfnOutput(this, "LoadBalancerDNS", new CfnOutputProps
+            {
+                Value = fargateService.LoadBalancer.LoadBalancerDnsName,
+                Description = "DNS name of the load balancer",
+                ExportName = "NorthStarApiUrl"
+            });
+
+            _ = new CfnOutput(this, "SecretArn", new CfnOutputProps
+            {
+                Value = polestarSecret.SecretArn,
+                Description = "Secrets Manager ARN for Polestar credentials",
+                ExportName = "NorthStarSecretArn"
+            });
+        }
+    }
+}

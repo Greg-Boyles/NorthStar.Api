@@ -6,3 +6,7 @@ obj/
 .idea/
 *.DotSettings.user
 appsettings.Development.json
+
+# CDK
+infrastructure/cdk.out/
+infrastructure/node_modules/
