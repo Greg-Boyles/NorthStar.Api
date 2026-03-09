@@ -6,6 +6,7 @@ A .NET 8 Web API that provides a unified REST interface to Polestar car APIs. No
 
 ### Authentication
 - **OIDC/PKCE Flow** — Secure authentication via Polestar ID (OAuth 2.0)
+- **Token Refresh** — Lightweight token refresh using refresh tokens (single HTTP call vs full OIDC flow)
 
 ### Car Information
 - **Car List** — Retrieve all cars associated with your account
@@ -20,6 +21,7 @@ A .NET 8 Web API that provides a unified REST interface to Polestar car APIs. No
   - Availability: online status, usage mode
   - Climate: parking climatization, temperatures, seat/steering wheel heating
   - Health: service warnings, fluid levels
+- **Unified Snapshot** — All vehicle data in a single request with shared gRPC channels and deduplicated battery queries
 
 ### Scheduling
 - **Charging Schedule** — Global charge timer (start/stop times, activation, pending changes)
@@ -30,7 +32,9 @@ A .NET 8 Web API that provides a unified REST interface to Polestar car APIs. No
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/auth/login` | Authenticate with Polestar ID |
+| `POST` | `/api/auth/refresh` | Refresh access token (avoids full OIDC re-auth) |
 | `GET` | `/api/cars` | List all cars with telematics |
+| `GET` | `/api/cars/{vin}/snapshot` | Unified vehicle data (all data in one call) |
 | `GET` | `/api/cars/{vin}/battery` | Battery and charging status |
 | `GET` | `/api/cars/{vin}/trips` | Odometer and trip data |
 | `GET` | `/api/cars/{vin}/status` | Comprehensive vehicle status |
@@ -60,15 +64,32 @@ curl -X POST https://localhost:7261/api/auth/login \
   -d '{"email":"your@email.com","password":"yourpassword"}'
 ```
 
-Response includes `accessToken` — use it in subsequent requests.
+Response includes `accessToken`, `refreshToken`, and `expiresIn` (token lifetime in seconds).
 
-#### 2. Get Cars
+#### 2. Refresh Token
+```bash
+curl -X POST https://localhost:7261/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"YOUR_REFRESH_TOKEN"}'
+```
+
+Returns a new `accessToken` and `refreshToken`. Use this instead of re-authenticating — it's a single HTTP call vs the full multi-step OIDC flow. Access tokens expire after **5 minutes**.
+
+#### 3. Get Cars
 ```bash
 curl https://localhost:7261/api/cars \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-#### 3. Get Vehicle Status
+#### 4. Get Vehicle Snapshot (recommended)
+```bash
+curl https://localhost:7261/api/cars/YOUR_VIN/snapshot \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Returns all vehicle data (battery, trips, status, charging schedule, climate schedule) in a single response. Uses shared gRPC channels and fetches battery data once instead of three times.
+
+#### 5. Get Vehicle Status
 ```bash
 curl https://localhost:7261/api/cars/YOUR_VIN/status \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
@@ -92,6 +113,7 @@ Import `NorthStar.postman_collection.json` for a complete collection with:
 - **ASP.NET Core 8** — Web API framework
 - **Grpc.Net.Client** — gRPC client for vehicle services
 - **Protobuf** — Protocol buffer definitions for gRPC services
+- **Serilog** — Structured logging
 - **System.Text.Json** — GraphQL query handling
 
 ### Proto Definitions
@@ -140,7 +162,7 @@ cd infrastructure
 ```
 
 This will:
-1. Deploy infrastructure (ECS Fargate, ALB, ECR, Secrets Manager)
+1. Deploy infrastructure (ECS Fargate, ALB, ECR)
 2. Build and push Docker image
 3. Deploy the service
 
@@ -150,7 +172,7 @@ See [infrastructure/README.md](infrastructure/README.md) for details.
 
 ## Notes
 
-- **Token Expiry**: Access tokens expire after ~2 hours. Re-authenticate when receiving 401 errors.
+- **Token Expiry**: Access tokens expire after **5 minutes**. Use the `/api/auth/refresh` endpoint with your refresh token instead of re-authenticating from scratch.
 - **Timeouts**: gRPC calls have 15-20 second timeouts. If the car is asleep, calls may time out (504 response).
 - **Rate Limits**: No documented limits, but avoid excessive polling. Consider caching responses.
 - **VIN Format**: All VINs are 17-character alphanumeric codes (e.g., `YSMVSEUU8SL310560`).

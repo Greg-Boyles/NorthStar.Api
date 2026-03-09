@@ -1,32 +1,58 @@
 using NorthStar.Api.Services;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting", Serilog.Events.LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .CreateLogger();
 
-// Add controllers
-builder.Services.AddControllers();
+try
+{
+    Log.Information("Starting NorthStar API");
 
-// Add health checks
-builder.Services.AddHealthChecks();
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Host.UseSerilog();
 
-// Add HttpClient factory
-builder.Services.AddHttpClient();
+    // Add controllers
+    builder.Services.AddControllers();
 
-// Register services
-builder.Services.AddScoped<PolestarAuthService>();
-builder.Services.AddScoped<PolestarCarService>();
-builder.Services.AddScoped<PolestarTripService>();
-builder.Services.AddScoped<PolestarStatusService>();
-builder.Services.AddScoped<PolestarChargingScheduleService>();
-builder.Services.AddScoped<PolestarClimateScheduleService>();
-builder.Services.AddScoped<VehicleSnapshotService>();
+    // Add health checks
+    builder.Services.AddHealthChecks();
 
-var app = builder.Build();
+    // Add HttpClient factory
+    builder.Services.AddHttpClient();
 
-app.UseHttpsRedirection();
+    // Register services
+    builder.Services.AddScoped<PolestarAuthService>();
+    builder.Services.AddScoped<PolestarCarService>();
+    builder.Services.AddScoped<PolestarTripService>();
+    builder.Services.AddScoped<PolestarStatusService>();
+    builder.Services.AddScoped<PolestarChargingScheduleService>();
+    builder.Services.AddScoped<PolestarClimateScheduleService>();
+    builder.Services.AddScoped<VehicleSnapshotService>();
 
-// Health check endpoint
-app.MapHealthChecks("/health");
+    var app = builder.Build();
 
-app.MapControllers();
+    // Request logging middleware
+    app.UseSerilogRequestLogging();
 
-app.Run();
+    app.UseHttpsRedirection();
+
+    // Health check endpoint
+    app.MapHealthChecks("/health");
+
+    app.MapControllers();
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
