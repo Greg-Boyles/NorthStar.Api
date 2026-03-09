@@ -166,8 +166,6 @@ This will:
 2. Build and push Docker image
 3. Deploy the service
 
-See [infrastructure/README.md](infrastructure/README.md) for details.
-
 **Estimated cost:** $16-50/month (mostly Application Load Balancer)
 
 ## Notes
