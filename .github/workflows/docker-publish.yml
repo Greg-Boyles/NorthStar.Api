@@ -53,10 +53,10 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore NorthStar.Api.csproj
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release /p:Version=${{ needs.version.outputs.semver }}
+        run: dotnet build NorthStar.Api.csproj --no-restore --configuration Release /p:Version=${{ needs.version.outputs.semver }}
 
   publish:
     name: Publish Docker Image
