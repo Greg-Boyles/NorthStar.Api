@@ -149,11 +149,33 @@ jobs:
       - name: Get API URL
         id: api-url
         run: |
+          # Wait for stack to reach a stable state before reading outputs
+          aws cloudformation wait stack-create-complete \
+            --stack-name NorthStarServiceStack \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || \
+          aws cloudformation wait stack-update-complete \
+            --stack-name NorthStarServiceStack \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || true
+
           LB_DNS=$(aws cloudformation describe-stacks \
             --stack-name NorthStarServiceStack \
             --query "Stacks[0].Outputs[?OutputKey=='LoadBalancerDNS'].OutputValue" \
             --output text \
             --region ${{ env.AWS_REGION }})
+
+          if [ -z "$LB_DNS" ] || [ "$LB_DNS" = "None" ]; then
+            echo "CloudFormation output not found, querying ELBv2 directly..."
+            LB_DNS=$(aws elbv2 describe-load-balancers \
+              --query "LoadBalancers[0].DNSName" \
+              --output text \
+              --region ${{ env.AWS_REGION }})
+          fi
+
+          if [ -z "$LB_DNS" ] || [ "$LB_DNS" = "None" ]; then
+            echo "::error::Could not resolve load balancer DNS"
+            exit 1
+          fi
+
           echo "url=http://$LB_DNS" >> $GITHUB_OUTPUT
           echo "### Deployed :white_check_mark:" >> $GITHUB_STEP_SUMMARY
           echo "API: http://$LB_DNS" >> $GITHUB_STEP_SUMMARY
