@@ -4,12 +4,9 @@ using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.ECS;
 using Amazon.CDK.AWS.ECS.Patterns;
 using Amazon.CDK.AWS.ECR;
-using Amazon.CDK.AWS.SecretsManager;
 using Amazon.CDK.AWS.ElasticLoadBalancingV2;
 using Amazon.CDK.AWS.ApplicationAutoScaling;
 using Constructs;
-using SecretsManagerSecret = Amazon.CDK.AWS.SecretsManager.Secret;
-using EcsSecret = Amazon.CDK.AWS.ECS.Secret;
 using ElbHealthCheck = Amazon.CDK.AWS.ElasticLoadBalancingV2.HealthCheck;
 
 namespace NorthStarInfrastructure
@@ -39,18 +36,6 @@ namespace NorthStarInfrastructure
                 EmptyOnDelete = true // Cleanup images on stack deletion
             });
 
-            // Secrets Manager for Polestar credentials (optional - can use env vars)
-            var polestarSecret = new SecretsManagerSecret(this, "PolestarCredentials", new SecretProps
-            {
-                SecretName = "northstar/polestar-credentials",
-                Description = "Polestar account credentials for NorthStar API",
-                GenerateSecretString = new SecretStringGenerator
-                {
-                    SecretStringTemplate = "{\"email\":\"\",\"password\":\"\"}",
-                    GenerateStringKey = "dummy" // Will be manually updated
-                }
-            });
-
             // Fargate Service with Application Load Balancer
             var fargateService = new ApplicationLoadBalancedFargateService(this, "NorthStarService", new ApplicationLoadBalancedFargateServiceProps
             {
@@ -70,13 +55,6 @@ namespace NorthStarInfrastructure
                     {
                         { "ASPNETCORE_ENVIRONMENT", "Production" },
                         { "ASPNETCORE_URLS", "http://+:8080" },
-                    },
-                    
-                    // Secrets from Secrets Manager (optional)
-                    Secrets = new Dictionary<string, EcsSecret>
-                    {
-                        { "POLESTAR_EMAIL", EcsSecret.FromSecretsManager(polestarSecret, "email") },
-                        { "POLESTAR_PASSWORD", EcsSecret.FromSecretsManager(polestarSecret, "password") }
                     }
                 },
                 
@@ -132,12 +110,6 @@ namespace NorthStarInfrastructure
                 ExportName = "NorthStarEcrUri"
             });
 
-            _ = new CfnOutput(this, "SecretArn", new CfnOutputProps
-            {
-                Value = polestarSecret.SecretArn,
-                Description = "Secrets Manager ARN for Polestar credentials",
-                ExportName = "NorthStarSecretArn"
-            });
         }
     }
 }

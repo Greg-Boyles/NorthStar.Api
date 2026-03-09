@@ -134,15 +134,58 @@ public class PolestarAuthService
         var tokenResp = await client.PostAsync(tokenEndpoint, tokenContent);
         tokenResp.EnsureSuccessStatusCode();
 
-        var tokenDoc = await JsonDocument.ParseAsync(await tokenResp.Content.ReadAsStreamAsync());
-        var accessToken = tokenDoc.RootElement.GetProperty("access_token").GetString()!;
-        var expiresIn = tokenDoc.RootElement.GetProperty("expires_in").GetInt32();
+        var oidcResponse = await JsonSerializer.DeserializeAsync<OidcTokenResponse>(
+            await tokenResp.Content.ReadAsStreamAsync());
+
+        if (oidcResponse == null)
+            throw new InvalidOperationException("Failed to deserialize token response");
 
         return new LoginResponse
         {
-            AccessToken = accessToken,
-            ExpiresIn = expiresIn,
-            TokenType = "Bearer"
+            AccessToken = oidcResponse.AccessToken,
+            RefreshToken = oidcResponse.RefreshToken,
+            ExpiresIn = oidcResponse.ExpiresIn,
+            TokenType = oidcResponse.TokenType
+        };
+    }
+
+    /// <summary>
+    /// Refresh an access token using a refresh token. Much cheaper than full OIDC login.
+    /// </summary>
+    public async Task<LoginResponse> RefreshTokenAsync(string refreshToken)
+    {
+        _logger.LogInformation("Refreshing access token");
+
+        using var client = new HttpClient();
+
+        // Fetch token endpoint from OIDC config
+        var oidcResp = await client.GetAsync($"{OidcProviderBaseUrl}/.well-known/openid-configuration");
+        oidcResp.EnsureSuccessStatusCode();
+        var oidcDoc = await JsonDocument.ParseAsync(await oidcResp.Content.ReadAsStreamAsync());
+        var tokenEndpoint = oidcDoc.RootElement.GetProperty("token_endpoint").GetString()!;
+
+        var tokenContent = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "refresh_token",
+            ["client_id"] = OidcClientId,
+            ["refresh_token"] = refreshToken
+        });
+
+        var tokenResp = await client.PostAsync(tokenEndpoint, tokenContent);
+        tokenResp.EnsureSuccessStatusCode();
+
+        var oidcResponse = await JsonSerializer.DeserializeAsync<OidcTokenResponse>(
+            await tokenResp.Content.ReadAsStreamAsync());
+
+        if (oidcResponse == null)
+            throw new InvalidOperationException("Failed to deserialize refresh token response");
+
+        return new LoginResponse
+        {
+            AccessToken = oidcResponse.AccessToken,
+            RefreshToken = oidcResponse.RefreshToken,
+            ExpiresIn = oidcResponse.ExpiresIn,
+            TokenType = oidcResponse.TokenType
         };
     }
 
