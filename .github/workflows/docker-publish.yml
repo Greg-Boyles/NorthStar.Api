@@ -37,7 +37,7 @@ jobs:
         uses: gittools/actions/gitversion/execute@v3.1.1
 
       - name: Display version
-        run: echo "Version: ${{ steps.gitversion.outputs.semVer }}"
+        run: 'echo "Version: ${{ steps.gitversion.outputs.semVer }}"'
 
   build:
     name: Build API
