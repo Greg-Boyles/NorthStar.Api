@@ -19,6 +19,10 @@ builder.Services.AddScoped<PolestarClimateScheduleService>();
 var app = builder.Build();
 
 app.UseHttpsRedirection();
+
+// Health check endpoint for ALB
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
 app.MapControllers();
 
 app.Run();
