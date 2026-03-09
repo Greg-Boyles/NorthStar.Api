@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+.git/
+.gitignore
+*.md
+*.http
+*.json
+!appsettings.json
+!appsettings.*.json
