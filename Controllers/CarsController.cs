@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using NorthStar.Api.Models;
 using NorthStar.Api.Services;
-using NorthStar.Services;
+using NorthStar.Api.Services;
 
-namespace NorthStar.Controllers;
+namespace NorthStar.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

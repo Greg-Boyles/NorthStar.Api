@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "NorthStar.Protos.Battery";
+option csharp_namespace = "NorthStar.Api.Protos.Battery";
 
 package services.vehiclestates.battery;
 

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "NorthStar.Protos.Exterior";
+option csharp_namespace = "NorthStar.Api.Protos.Exterior";
 
 package services.vehiclestates.exterior;
 

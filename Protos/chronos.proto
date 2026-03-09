@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "NorthStar.Protos.Chronos";
+option csharp_namespace = "NorthStar.Api.Protos.Chronos";
 
 package pccs.chronos.services.v2;
 

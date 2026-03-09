@@ -4,7 +4,7 @@ using System.Text.Json;
 using Grpc.Core;
 using Grpc.Net.Client;
 using NorthStar.Api.Models;
-using NorthStar.Services;
+using NorthStar.Api.Services;
 using ExteriorProtos = NorthStar.Api.Protos.Exterior;
 using AvailabilityProtos = NorthStar.Api.Protos.Availability;
 using ClimateProtos = NorthStar.Api.Protos.ParkingClimatization;

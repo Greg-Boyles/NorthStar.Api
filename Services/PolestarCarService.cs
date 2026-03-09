@@ -2,9 +2,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using NorthStar.Api.Models;
-using NorthStar.Models;
+using NorthStar.Api.Models;
 
-namespace NorthStar.Services;
+namespace NorthStar.Api.Services;
 
 public class PolestarCarService
 {

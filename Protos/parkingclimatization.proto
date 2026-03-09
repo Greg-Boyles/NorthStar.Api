@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "NorthStar.Protos.ParkingClimatization";
+option csharp_namespace = "NorthStar.Api.Protos.ParkingClimatization";
 
 package services.vehiclestates.parkingclimatization;
 
