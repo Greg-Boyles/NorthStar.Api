@@ -10,3 +10,6 @@ appsettings.Development.json
 # CDK
 infrastructure/cdk.out/
 infrastructure/node_modules/
+
+# Local scripts
+*.sh
