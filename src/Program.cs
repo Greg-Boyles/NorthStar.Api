@@ -56,7 +56,8 @@ try
     // Register services
     builder.Services.AddSingleton<RedisLockService>();
     builder.Services.AddSingleton<VehicleStateCache>();
-    builder.Services.AddHostedService<VehicleStreamService>();
+    builder.Services.AddSingleton<VehicleStreamService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<VehicleStreamService>());
     builder.Services.AddScoped<PolestarAuthService>();
     builder.Services.AddScoped<PolestarCarService>();
     builder.Services.AddScoped<PolestarTripService>();
