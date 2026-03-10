@@ -7,7 +7,6 @@ A Helm chart for deploying NorthStar.Api to Kubernetes. This chart provides a pr
 - Kubernetes 1.19+
 - Helm 3.0+
 - Redis instance (for streaming support)
-- Polestar account credentials
 
 ## Installation
 
@@ -18,19 +17,13 @@ A Helm chart for deploying NorthStar.Api to Kubernetes. This chart provides a pr
    kubectl create namespace northstar
    ```
 
-2. **Create secrets for Polestar credentials:**
-   ```bash
-   kubectl create secret generic northstar-polestar-creds \
-     --from-literal=POLESTAR_EMAIL=your-email@example.com \
-     --from-literal=POLESTAR_PASSWORD=your-password \
-     -n northstar
-   ```
-
-3. **Install the chart:**
+2. **Install the chart:**
    ```bash
    helm install northstar ./charts/northstar-api \
      --namespace northstar
    ```
+
+**Note:** No secrets needed! Polestar credentials are submitted by clients (e.g., Home Assistant) when they call `POST /api/auth/login`. The API is stateless.
 
 ### Custom Values
 
@@ -60,10 +53,6 @@ env:
   REDIS_ENDPOINT: "redis-master.redis.svc.cluster.local:6379"
   ASPNETCORE_ENVIRONMENT: "Production"
 
-secrets:
-  polestarCredentials:
-    secretName: "northstar-polestar-creds"
-
 resources:
   limits:
     cpu: 1000m
@@ -92,7 +81,6 @@ helm install northstar ./charts/northstar-api \
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `secrets.polestarCredentials.secretName` | Name of K8s secret with Polestar credentials | `northstar-polestar-creds` |
 | `env.REDIS_ENDPOINT` | Redis connection string | `redis:6379` |
 
 ### Common Parameters
@@ -110,33 +98,17 @@ helm install northstar ./charts/northstar-api \
 
 See `values.yaml` for all available options.
 
-## Secret Management
+## Authentication
 
-### Option 1: Manual Kubernetes Secrets (Example in values.yaml)
+The API **does not store or require** Polestar credentials. Clients (like Home Assistant) submit credentials when authenticating:
 
 ```bash
-kubectl create secret generic northstar-polestar-creds \
-  --from-literal=POLESTAR_EMAIL=your@email.com \
-  --from-literal=POLESTAR_PASSWORD=yourpassword \
-  -n northstar
+curl -X POST http://northstar-api/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password"}'
 ```
 
-### Option 2: External Secrets Operator (Recommended for Production)
-
-1. Install [External Secrets Operator](https://external-secrets.io/)
-2. Create a SecretStore pointing to your secrets backend (AWS Secrets Manager, Azure Key Vault, etc.)
-3. Enable external secrets in values:
-
-```yaml
-externalSecrets:
-  enabled: true
-  secretStore:
-    name: aws-secretsmanager
-    kind: SecretStore
-  secrets:
-    - name: polestar-credentials
-      key: northstar/polestar-credentials
-```
+The API returns access and refresh tokens. The API is completely stateless - no credentials are stored.
 
 ## Redis Deployment
 

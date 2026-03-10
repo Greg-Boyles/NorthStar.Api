@@ -42,18 +42,6 @@ spec:
         - name: {{ $key }}
           value: {{ $value | quote }}
         {{- end }}
-        {{- if .Values.secrets.polestarCredentials }}
-        - name: {{ .Values.secrets.polestarCredentials.keys.email }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.secrets.polestarCredentials.secretName }}
-              key: {{ .Values.secrets.polestarCredentials.keys.email }}
-        - name: {{ .Values.secrets.polestarCredentials.keys.password }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.secrets.polestarCredentials.secretName }}
-              key: {{ .Values.secrets.polestarCredentials.keys.password }}
-        {{- end }}
         livenessProbe:
           {{- toYaml .Values.livenessProbe | nindent 12 }}
         readinessProbe:

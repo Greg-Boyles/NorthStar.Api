@@ -88,26 +88,9 @@ env:
   # Redis configuration (example - replace with your actual values)
   REDIS_ENDPOINT: "redis-master.redis.svc.cluster.local:6379"
 
-# Secrets configuration
-# Option 1: Use Kubernetes External Secrets Operator
-externalSecrets:
-  enabled: false
-  # secretStore:
-  #   name: aws-secretsmanager
-  #   kind: SecretStore
-  # secrets:
-  #   - name: polestar-credentials
-  #     key: northstar/polestar-credentials
-
-# Option 2: Reference existing Kubernetes secrets
-secrets:
-  # Name of existing secret containing Polestar credentials
-  # Expected keys: POLESTAR_EMAIL, POLESTAR_PASSWORD
-  polestarCredentials:
-    secretName: "northstar-polestar-creds"
-    keys:
-      email: "POLESTAR_EMAIL"
-      password: "POLESTAR_PASSWORD"
+# NOTE: No secrets required!
+# Polestar credentials are submitted by clients via POST /api/auth/login
+# The API is stateless and does not store credentials
 
 # Probes configuration
 livenessProbe:

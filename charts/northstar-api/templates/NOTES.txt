@@ -32,13 +32,6 @@ Namespace: {{ .Release.Namespace }}
   Then access: http://localhost:8080/health
 {{- end }}
 
-🔐 Secrets Required:
-  Make sure the following secret exists with your Polestar credentials:
-    kubectl create secret generic {{ .Values.secrets.polestarCredentials.secretName }} \
-      --from-literal={{ .Values.secrets.polestarCredentials.keys.email }}=your-email@example.com \
-      --from-literal={{ .Values.secrets.polestarCredentials.keys.password }}=your-password \
-      -n {{ .Release.Namespace }}
-
 🏥 Health Check:
   curl http://YOUR-API-URL/health
 
