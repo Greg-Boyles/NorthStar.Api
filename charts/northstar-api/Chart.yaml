@@ -1,0 +1,17 @@
+apiVersion: v2
+name: northstar-api
+description: A Helm chart for NorthStar.Api - Polestar vehicle data proxy
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - polestar
+  - api
+  - home-assistant
+  - vehicle
+home: https://github.com/Greg-Boyles/NorthStar.Api
+sources:
+  - https://github.com/Greg-Boyles/NorthStar.Api
+maintainers:
+  - name: Greg Boyles
+    url: https://github.com/Greg-Boyles

@@ -178,7 +178,32 @@ NorthStar.Api/
 
 ## Deployment
 
-### AWS Fargate Deployment
+### Kubernetes / Helm (Recommended)
+
+Helm chart for deploying to any Kubernetes cluster (EKS, GKE, AKS, self-hosted):
+
+```bash
+# Create namespace and secrets
+kubectl create namespace northstar
+kubectl create secret generic northstar-polestar-creds \
+  --from-literal=POLESTAR_EMAIL=your@email.com \
+  --from-literal=POLESTAR_PASSWORD=yourpassword \
+  -n northstar
+
+# Install the chart
+helm install northstar ./charts/northstar-api \
+  --namespace northstar
+```
+
+See [charts/northstar-api/README.md](charts/northstar-api/README.md) for detailed configuration options.
+
+**Estimated cost (EKS/GKE/AKS):**
+- Cluster nodes: ~$30-70/month per node (t3.medium equivalent)
+- ElastiCache/Redis: ~$12-23/month (t4g.micro/small)
+- Load Balancer: ~$16-20/month
+- **Total: ~$60-115/month** depending on node size and Redis tier
+
+### AWS Fargate (Serverless)
 
 The `infrastructure/` directory contains AWS CDK code for deploying to AWS Fargate:
 
@@ -192,7 +217,7 @@ This will:
 2. Build and push Docker image
 3. Deploy the service
 
-**Estimated cost:** $16-50/month (mostly Application Load Balancer + ElastiCache)
+**Estimated cost:** $16-50/month (mostly Application Load Balancer + Fargate compute)
 
 ## Notes
 

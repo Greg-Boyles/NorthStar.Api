@@ -1,0 +1,52 @@
+✨ NorthStar.Api has been deployed! ✨
+
+Release Name: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+📋 Resources Created:
+  - Deployment: {{ include "northstar-api.fullname" . }}
+  - Service: {{ include "northstar-api.fullname" . }}
+{{- if .Values.serviceAccount.create }}
+  - ServiceAccount: {{ include "northstar-api.serviceAccountName" . }}
+{{- end }}
+{{- if .Values.ingress.enabled }}
+  - Ingress: {{ include "northstar-api.fullname" . }}
+{{- end }}
+
+🔗 Access Information:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  External URL: https://{{ .host }}
+{{- end }}
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  
+  Run the following to get the external IP:
+    kubectl get svc {{ include "northstar-api.fullname" . }} -n {{ .Release.Namespace }}
+{{- else if eq .Values.service.type "ClusterIP" }}
+  Internal Service: {{ include "northstar-api.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+  
+  To access from outside the cluster, use port-forward:
+    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "northstar-api.fullname" . }} 8080:{{ .Values.service.port }}
+    
+  Then access: http://localhost:8080/health
+{{- end }}
+
+🔐 Secrets Required:
+  Make sure the following secret exists with your Polestar credentials:
+    kubectl create secret generic {{ .Values.secrets.polestarCredentials.secretName }} \
+      --from-literal={{ .Values.secrets.polestarCredentials.keys.email }}=your-email@example.com \
+      --from-literal={{ .Values.secrets.polestarCredentials.keys.password }}=your-password \
+      -n {{ .Release.Namespace }}
+
+🏥 Health Check:
+  curl http://YOUR-API-URL/health
+
+📚 Documentation:
+  - GitHub: https://github.com/Greg-Boyles/NorthStar.Api
+  - Chart README: https://github.com/Greg-Boyles/NorthStar.Api/tree/main/charts/northstar-api
+
+💡 Next Steps:
+  1. Verify pods are running: kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "northstar-api.name" . }}
+  2. Check logs: kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "northstar-api.name" . }}
+  3. Configure your Home Assistant integration with the API URL above
