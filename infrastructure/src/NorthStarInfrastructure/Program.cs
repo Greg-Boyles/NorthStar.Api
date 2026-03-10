@@ -16,22 +16,30 @@ namespace NorthStarInfrastructure
                 Region = "eu-west-1",
             };
 
-            // Stack 1: ECR Repository (deploy first, push image, then deploy stack 2)
+            // Stack 1: ECR Repository (deploy first, push image, then deploy remaining stacks)
             var repoStack = new RepositoryStack(app, "NorthStarRepositoryStack", new StackProps
             {
                 Env = env
             });
 
-            // Stack 2: ECS Fargate Service (requires image in ECR)
+            // Stack 2: ElastiCache Redis
+            var redisStack = new RedisStack(app, "NorthStarRedisStack", new StackProps
+            {
+                Env = env
+            });
+
+            // Stack 3: ECS Fargate Service (requires image in ECR and Redis endpoint)
             var serviceStack = new ServiceStack(app, "NorthStarServiceStack", new ServiceStackProps
             {
                 Env = env,
-                Repository = repoStack.Repository
+                Repository = repoStack.Repository,
+                RedisEndpoint = redisStack.RedisEndpoint
             });
 
             serviceStack.AddDependency(repoStack);
+            serviceStack.AddDependency(redisStack);
 
-            // Stack 3: CI/CD (GitHub OIDC + IAM role)
+            // Stack 4: CI/CD (GitHub OIDC + IAM role)
             new CiCdStack(app, "NorthStarCiCdStack", new StackProps
             {
                 Env = env

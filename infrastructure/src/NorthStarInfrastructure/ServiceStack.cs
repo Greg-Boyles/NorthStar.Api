@@ -14,6 +14,7 @@ namespace NorthStarInfrastructure
     public class ServiceStackProps : StackProps
     {
         public IRepository Repository { get; set; }
+        public string RedisEndpoint { get; set; }
     }
 
     public class ServiceStack : Stack
@@ -21,6 +22,7 @@ namespace NorthStarInfrastructure
         internal ServiceStack(Construct scope, string id, ServiceStackProps props) : base(scope, id, props)
         {
             var repository = props.Repository;
+            var redisEndpoint = props.RedisEndpoint;
             var imageTag = (string)this.Node.TryGetContext("imageTag") ?? "latest";
 
             // VPC - Use default VPC to stay within free tier
@@ -53,6 +55,7 @@ namespace NorthStarInfrastructure
                     {
                         { "ASPNETCORE_ENVIRONMENT", "Production" },
                         { "ASPNETCORE_URLS", "http://+:8080" },
+                        { "REDIS_ENDPOINT", $"{redisEndpoint}:6379" }
                     }
                 },
 

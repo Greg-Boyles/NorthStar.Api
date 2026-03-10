@@ -7,8 +7,8 @@ branches:
   feature:
     regex: ^features?[/-]
     increment: Minor
-    label: alpha.{BranchName}
+    label: alpha
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
     increment: Inherit
-    label: pr.{BranchName}
+    label: pr

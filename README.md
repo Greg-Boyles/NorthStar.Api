@@ -22,6 +22,14 @@ A .NET 8 Web API that provides a unified REST interface to Polestar car APIs. No
   - Climate: parking climatization, temperatures, seat/steering wheel heating
   - Health: service warnings, fluid levels
 - **Unified Snapshot** — All vehicle data in a single request with shared gRPC channels and deduplicated battery queries
+- **Redis Caching** — 2-hour cache for snapshot data with automatic cache invalidation
+
+### Real-Time Streaming (via Redis + Background gRPC)
+- **On-Demand Activation** — Streams start only when requested (e.g., by Home Assistant)
+- **Background Updates** — Persistent gRPC connections stream real-time data to Redis cache
+- **Auto-Cleanup** — Streams stop after 30 minutes of inactivity
+- **Distributed Locking** — Prevents duplicate streams across multiple instances
+- **Token Management** — Automatic token refresh every 4 minutes
 
 ### Scheduling
 - **Charging Schedule** — Global charge timer (start/stop times, activation, pending changes)
@@ -34,18 +42,22 @@ A .NET 8 Web API that provides a unified REST interface to Polestar car APIs. No
 | `POST` | `/api/auth/login` | Authenticate with Polestar ID |
 | `POST` | `/api/auth/refresh` | Refresh access token (avoids full OIDC re-auth) |
 | `GET` | `/api/cars` | List all cars with telematics |
-| `GET` | `/api/cars/{vin}/snapshot` | Unified vehicle data (all data in one call) |
+| `GET` | `/api/cars/{vin}/snapshot` | Unified vehicle data (cached, 2hr TTL) |
 | `GET` | `/api/cars/{vin}/battery` | Battery and charging status |
 | `GET` | `/api/cars/{vin}/trips` | Odometer and trip data |
 | `GET` | `/api/cars/{vin}/status` | Comprehensive vehicle status |
 | `GET` | `/api/cars/{vin}/charging-schedule` | Charge timer schedule |
 | `GET` | `/api/cars/{vin}/climate-schedule` | Climate timer schedule |
+| `POST` | `/api/stream/{vin}/start` | Start streaming (requires refreshToken) |
+| `GET` | `/api/stream/{vin}` | Get cached stream data (real-time updates) |
+| `POST` | `/api/stream/{vin}/stop` | Stop streaming (optional, auto-cleanup) |
 
 ## Getting Started
 
 ### Prerequisites
 - .NET 8 SDK
 - Valid Polestar ID credentials
+- Docker (automatically started via Testcontainers in development)
 
 ### Running the API
 
@@ -54,6 +66,9 @@ dotnet run --project src/NorthStar.Api.csproj
 ```
 
 The API will start at `https://localhost:7261`
+
+**Development:** Redis container auto-starts via Testcontainers (no manual setup needed)  
+**Production:** Set `REDIS_ENDPOINT` environment variable to your Redis/ElastiCache endpoint
 
 ### Example Usage
 
@@ -87,7 +102,7 @@ curl https://localhost:7261/api/cars/YOUR_VIN/snapshot \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-Returns all vehicle data (battery, trips, status, charging schedule, climate schedule) in a single response. Uses shared gRPC channels and fetches battery data once instead of three times.
+Returns all vehicle data (battery, trips, status, charging schedule, climate schedule) in a single response. Uses shared gRPC channels and fetches battery data once instead of three times. Data is cached in Redis with a 2-hour TTL. Check the `X-Data-Source` header for `cache` or `live`.
 
 #### 5. Get Vehicle Status
 ```bash
@@ -100,7 +115,7 @@ curl https://localhost:7261/api/cars/YOUR_VIN/status \
 Import `NorthStar.postman_collection.json` for a complete collection with:
 - Auto-token storage after login
 - Auto-VIN extraction from car list
-- All endpoints pre-configured
+- All endpoints pre-configured including new streaming endpoints
 
 ## Architecture
 
@@ -108,10 +123,13 @@ Import `NorthStar.postman_collection.json` for a complete collection with:
 - **Polestar GraphQL** — Car metadata and telematics (`pc-api.polestar.com`)
 - **C3 gRPC** — Real-time vehicle state from Volvo's digital twin platform (`cepmobtoken.eu.prod.c3.volvocars.com`)
 - **PCCS gRPC** — Scheduling services (Chronos v1/v2 on `api.pccs-prod.plstr.io`)
+- **Redis** — Caching and distributed locking (ElastiCache in AWS, Testcontainers locally)
 
 ### Technology Stack
 - **ASP.NET Core 8** — Web API framework
 - **Grpc.Net.Client** — gRPC client for vehicle services
+- **StackExchange.Redis** — Redis caching and distributed locking
+- **Testcontainers.Redis** — Auto-start Redis in development
 - **Protobuf** — Protocol buffer definitions for gRPC services
 - **Serilog** — Structured logging
 - **System.Text.Json** — GraphQL query handling
@@ -133,9 +151,16 @@ NorthStar.Api/
 ├── src/                            # API source code
 │   ├── Controllers/
 │   │   ├── AuthController.cs       # OIDC authentication
-│   │   └── CarsController.cs       # All car endpoints
+│   │   ├── CarsController.cs       # Car data endpoints
+│   │   └── StreamController.cs     # Streaming endpoints
 │   ├── Models/                     # Request/response models
-│   ├── Services/                   # Polestar API integrations
+│   ├── Services/                   # Business logic
+│   │   ├── PolestarAuthService.cs  # Authentication
+│   │   ├── VehicleSnapshotService.cs # Unified snapshot with caching
+│   │   ├── VehicleStreamService.cs # Background stream orchestrator
+│   │   ├── VehicleStreamManager.cs # Per-VIN stream manager
+│   │   ├── VehicleStateCache.cs    # Redis cache wrapper
+│   │   └── RedisLockService.cs     # Distributed locking
 │   ├── Protos/                     # gRPC proto definitions
 │   ├── NorthStar.Api.csproj
 │   └── Dockerfile
@@ -143,6 +168,7 @@ NorthStar.Api/
 │   ├── src/NorthStarInfrastructure/
 │   │   ├── RepositoryStack.cs      # ECR repository
 │   │   ├── ServiceStack.cs         # ECS Fargate + ALB
+│   │   ├── RedisStack.cs           # ElastiCache cluster (TODO)
 │   │   └── CiCdStack.cs            # GitHub OIDC + IAM role
 │   └── deploy.sh
 ├── .github/workflows/              # CI/CD pipeline
@@ -166,14 +192,15 @@ This will:
 2. Build and push Docker image
 3. Deploy the service
 
-**Estimated cost:** $16-50/month (mostly Application Load Balancer)
+**Estimated cost:** $16-50/month (mostly Application Load Balancer + ElastiCache)
 
 ## Notes
 
 - **Token Expiry**: Access tokens expire after **5 minutes**. Use the `/api/auth/refresh` endpoint with your refresh token instead of re-authenticating from scratch.
 - **Timeouts**: gRPC calls have 15-20 second timeouts. If the car is asleep, calls may time out (504 response).
-- **Rate Limits**: No documented limits, but avoid excessive polling. Consider caching responses.
+- **Rate Limits**: No documented limits, but avoid excessive polling. Use caching and streaming for efficient data access.
 - **VIN Format**: All VINs are 17-character alphanumeric codes (e.g., `YSMVSEUU8SL310560`).
+- **Streaming**: Background streams use distributed locks to prevent duplicates across multiple ECS tasks. Streams auto-stop after 30 minutes of inactivity.
 
 ## License
 

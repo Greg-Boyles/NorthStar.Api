@@ -19,6 +19,11 @@
       "key": "vin",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -36,6 +41,7 @@
                   "if (pm.response.code === 200) {",
                   "    var json = pm.response.json();",
                   "    pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', json.refreshToken);",
                   "    console.log('Token saved. Expires in ' + json.expiresIn + 's');",
                   "}"
                 ]
@@ -60,6 +66,47 @@
               "path": ["api", "auth", "login"]
             },
             "description": "Authenticate with Polestar ID. The access token is automatically saved to the collection variable `accessToken` for use in subsequent requests."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "    if (json.refreshToken) {",
+                  "        pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "    }",
+                  "    console.log('Token refreshed. Expires in ' + json.expiresIn + 's');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token. Much faster than full login (single HTTP call vs OIDC flow). Access tokens expire after 5 minutes."
           },
           "response": []
         }
@@ -196,6 +243,91 @@
               "path": ["api", "cars", "{{vin}}", "climate-schedule"]
             },
             "description": "Get parking climatization timer schedule and settings. Returns configured timers (ready-at time, weekdays, repeat, activation), climate settings (target temperature, seat heating per seat, steering wheel heating, battery preconditioning), and any pending changes not yet synced to the car."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Vehicle Snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cars/{{vin}}/snapshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cars", "{{vin}}", "snapshot"]
+            },
+            "description": "Get all vehicle data in a single optimized request. Returns battery, trips, status, charging schedule, and climate schedule. Uses shared gRPC channels and deduplicates battery queries for better performance. Response includes X-Data-Source header (cache or live)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Streaming",
+      "item": [
+        {
+          "name": "Start Stream",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/stream/{{vin}}/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stream", "{{vin}}", "start"]
+            },
+            "description": "Start streaming vehicle data for a VIN. Stores refresh token and begins background gRPC streams for real-time updates. Called by Home Assistant integration on setup. Streams auto-stop after 30 minutes of inactivity."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Stream Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stream/{{vin}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stream", "{{vin}}"]
+            },
+            "description": "Get cached stream data for a VIN. Returns 404 if no active streams. Updates lastAccess timestamp to prevent auto-cleanup. Supports ETag for efficient polling. Response is real-time data from background gRPC streams."
+          },
+          "response": []
+        },
+        {
+          "name": "Stop Stream",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stream/{{vin}}/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stream", "{{vin}}", "stop"]
+            },
+            "description": "Stop streaming for a VIN. Removes refresh token and cached data. Optional - auto-cleanup handles this after 30 minutes of inactivity."
           },
           "response": []
         }

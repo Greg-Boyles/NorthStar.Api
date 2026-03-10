@@ -1,5 +1,6 @@
 using NorthStar.Api.Services;
 using Serilog;
+using Testcontainers.Redis;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -25,7 +26,37 @@ try
     // Add HttpClient factory
     builder.Services.AddHttpClient();
 
+    // Start Redis container in development environment
+    RedisContainer? redisContainer = null;
+    if (builder.Environment.IsDevelopment())
+    {
+        Log.Information("Development environment detected - starting Redis container via Testcontainers");
+        redisContainer = new RedisBuilder("redis:7-alpine")
+            .Build();
+        
+        await redisContainer.StartAsync();
+        Log.Information("Redis container started at {Endpoint}", redisContainer.GetConnectionString());
+        
+        // Register container for cleanup on shutdown
+        builder.Services.AddSingleton(redisContainer);
+    }
+
+    // Add Redis distributed cache
+    var redisEndpoint = builder.Environment.IsDevelopment() && redisContainer != null
+        ? redisContainer.GetConnectionString()
+        : builder.Configuration.GetValue<string>("REDIS_ENDPOINT") ?? "localhost:6379";
+    builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
+        StackExchange.Redis.ConnectionMultiplexer.Connect(redisEndpoint));
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisEndpoint;
+        options.InstanceName = "northstar:";
+    });
+
     // Register services
+    builder.Services.AddSingleton<RedisLockService>();
+    builder.Services.AddSingleton<VehicleStateCache>();
+    builder.Services.AddHostedService<VehicleStreamService>();
     builder.Services.AddScoped<PolestarAuthService>();
     builder.Services.AddScoped<PolestarCarService>();
     builder.Services.AddScoped<PolestarTripService>();
@@ -45,6 +76,18 @@ try
     app.MapHealthChecks("/health");
 
     app.MapControllers();
+
+    // Register cleanup for Redis container on shutdown
+    var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+    lifetime.ApplicationStopping.Register(() =>
+    {
+        if (redisContainer != null)
+        {
+            Log.Information("Stopping Redis container");
+            redisContainer.StopAsync().GetAwaiter().GetResult();
+            redisContainer.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    });
 
     app.Run();
 }
