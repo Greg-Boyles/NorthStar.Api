@@ -41,12 +41,17 @@ public class StreamController : ControllerBase
             _logger.LogInformation("Starting stream for VIN {Vin}", vin);
             var tokenResponse = await _authService.RefreshTokenAsync(request.RefreshToken);
 
+            if (tokenResponse.RefreshToken is null)
+            {
+                return BadRequest(new { error = "Invalid refresh token or token rotation not supported" });
+            }
+            
             // Store refresh token and initialize lastAccess timestamp
-            await _cache.SetRefreshTokenAsync(vin, request.RefreshToken);
+            await _cache.SetRefreshTokenAsync(vin, tokenResponse.RefreshToken);
             await _cache.UpdateLastAccessAsync(vin);
 
             // Start background gRPC streams
-            await _streamService.StartStreamsForVinAsync(vin, request.RefreshToken, HttpContext.RequestAborted);
+            await _streamService.StartStreamsForVinAsync(vin, tokenResponse.RefreshToken, HttpContext.RequestAborted);
 
             _logger.LogInformation("Stream started for VIN {Vin}", vin);
 
