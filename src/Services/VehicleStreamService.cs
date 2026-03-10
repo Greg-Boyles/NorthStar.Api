@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Caching.Distributed;
-using StackExchange.Redis;
 using BatteryProtos = NorthStar.Api.Protos.Battery;
 using OdometerProtos = NorthStar.Api.Protos;
 using ExteriorProtos = NorthStar.Api.Protos.Exterior;
@@ -88,6 +87,7 @@ public class VehicleStreamService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
+        var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
 
         // Find VINs with active refresh tokens using Redis SCAN
         var activeVins = await FindActiveVinsAsync(ct);
@@ -121,7 +121,9 @@ public class VehicleStreamService : BackgroundService
                 // Renew distributed lock periodically
                 if (DateTimeOffset.UtcNow - streamSet.LastLockRenewal > LockRenewalInterval)
                 {
-                    var renewed = await RenewStreamLockAsync(vin, streamSet.LockValue, ct);
+                    var lockKey = $"stream_lock:{vin}";
+                    var renewed = await lockService.RenewLockAsync(lockKey, streamSet.LockValue, LockExpiry);
+                    
                     if (!renewed)
                     {
                         _logger.LogWarning("Failed to renew lock for VIN {Vin}, stopping streams", vin);
@@ -180,14 +182,13 @@ public class VehicleStreamService : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
+            var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
             var authService = scope.ServiceProvider.GetRequiredService<PolestarAuthService>();
 
             // Acquire distributed lock to ensure only one task streams this VIN
             var lockKey = $"stream_lock:{vin}";
             var lockValue = Guid.NewGuid().ToString();
-            var db = redis.GetDatabase();
-            var lockAcquired = await db.StringSetAsync(lockKey, lockValue, LockExpiry, When.NotExists);
+            var lockAcquired = await lockService.AcquireLockAsync(lockKey, lockValue, LockExpiry);
 
             if (!lockAcquired)
             {
@@ -251,10 +252,11 @@ public class VehicleStreamService : BackgroundService
 
             using var scope = _serviceProvider.CreateScope();
             var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
-            var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
+            var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
 
             // Release distributed lock
-            await ReleaseStreamLockAsync(vin, streamSet.LockValue, ct);
+            var lockKey = $"stream_lock:{vin}";
+            await lockService.ReleaseLockAsync(lockKey, streamSet.LockValue);
 
             await cache.RemoveAsync(vin, ct);
 
@@ -539,60 +541,4 @@ public class VehicleStreamService : BackgroundService
         _ => "Unknown"
     };
 
-    /// <summary>
-    /// Renew the distributed lock for a VIN to prevent other tasks from taking over.
-    /// </summary>
-    private async Task<bool> RenewStreamLockAsync(string vin, string lockValue, CancellationToken ct)
-    {
-        try
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
-            var db = redis.GetDatabase();
-            var lockKey = $"stream_lock:{vin}";
-
-            // Only renew if we still own the lock (compare lockValue)
-            var currentValue = await db.StringGetAsync(lockKey);
-            if (currentValue == lockValue)
-            {
-                await db.KeyExpireAsync(lockKey, LockExpiry);
-                _logger.LogDebug("Renewed lock for VIN {Vin}", vin);
-                return true;
-            }
-
-            _logger.LogWarning("Lock ownership lost for VIN {Vin}", vin);
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to renew lock for VIN {Vin}", vin);
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Release the distributed lock for a VIN when stopping streams.
-    /// </summary>
-    private async Task ReleaseStreamLockAsync(string vin, string lockValue, CancellationToken ct)
-    {
-        try
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var redis = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>();
-            var db = redis.GetDatabase();
-            var lockKey = $"stream_lock:{vin}";
-
-            // Only release if we still own the lock (compare lockValue)
-            var currentValue = await db.StringGetAsync(lockKey);
-            if (currentValue == lockValue)
-            {
-                await db.KeyDeleteAsync(lockKey);
-                _logger.LogInformation("Released lock for VIN {Vin}", vin);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to release lock for VIN {Vin}", vin);
-        }
-    }
 }

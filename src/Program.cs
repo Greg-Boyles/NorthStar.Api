@@ -36,6 +36,7 @@ try
     });
 
     // Register services
+    builder.Services.AddSingleton<RedisLockService>();
     builder.Services.AddSingleton<VehicleStateCache>();
     builder.Services.AddHostedService<VehicleStreamService>();
     builder.Services.AddScoped<PolestarAuthService>();
