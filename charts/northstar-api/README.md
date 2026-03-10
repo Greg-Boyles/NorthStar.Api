@@ -224,8 +224,3 @@ affinity:
 3. **Enable network policies** to restrict pod-to-pod communication
 4. **Use Pod Security Standards** (configured in podSecurityContext/securityContext)
 5. **Regularly update** the image to get security patches
-
-## Support
-
-- GitHub Issues: https://github.com/Greg-Boyles/NorthStar.Api/issues
-- Documentation: https://github.com/Greg-Boyles/NorthStar.Api

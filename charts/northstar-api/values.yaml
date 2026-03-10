@@ -88,10 +88,6 @@ env:
   # Redis configuration (example - replace with your actual values)
   REDIS_ENDPOINT: "redis-master.redis.svc.cluster.local:6379"
 
-# NOTE: No secrets required!
-# Polestar credentials are submitted by clients via POST /api/auth/login
-# The API is stateless and does not store credentials
-
 # Probes configuration
 livenessProbe:
   httpGet:
