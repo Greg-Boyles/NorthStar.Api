@@ -17,6 +17,7 @@ public class VehicleSnapshotService
     private readonly PolestarTripService _tripService;
     private readonly PolestarChargingScheduleService _chargingScheduleService;
     private readonly PolestarClimateScheduleService _climateScheduleService;
+    private readonly VehicleStateCache _cache;
     private readonly ILogger<VehicleSnapshotService> _logger;
 
     public VehicleSnapshotService(
@@ -24,18 +25,28 @@ public class VehicleSnapshotService
         PolestarTripService tripService,
         PolestarChargingScheduleService chargingScheduleService,
         PolestarClimateScheduleService climateScheduleService,
+        VehicleStateCache cache,
         ILogger<VehicleSnapshotService> logger)
     {
         _statusService = statusService;
         _tripService = tripService;
         _chargingScheduleService = chargingScheduleService;
         _climateScheduleService = climateScheduleService;
+        _cache = cache;
         _logger = logger;
     }
 
     public async Task<VehicleSnapshot> GetSnapshotAsync(string accessToken, string vin, CancellationToken ct = default)
     {
-        _logger.LogInformation("Fetching unified snapshot for VIN: {Vin}", vin);
+        // Try cache first
+        var cached = await _cache.GetSnapshotAsync(vin, ct);
+        if (cached != null)
+        {
+            _logger.LogInformation("Snapshot served from cache for VIN: {Vin}", vin);
+            return cached;
+        }
+
+        _logger.LogInformation("Cache miss, fetching live snapshot for VIN: {Vin}", vin);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(25));
@@ -70,7 +81,7 @@ public class VehicleSnapshotService
         var odometerRaw = await SafeAwait(odometerTask, "Odometer");
 
         // Build snapshot using shared battery data
-        return new VehicleSnapshot
+        var snapshot = new VehicleSnapshot
         {
             Vin = vin,
             Battery = batteryRaw != null ? _tripService.MapBatteryData(vin, batteryRaw) : null,
@@ -88,6 +99,11 @@ public class VehicleSnapshotService
             ChargingSchedule = await chargingTask,
             ClimateSchedule = await climateScheduleTask
         };
+
+        // Cache the result for next request
+        await _cache.SetSnapshotAsync(vin, snapshot, ct);
+
+        return snapshot;
     }
 
     private static async Task<BatteryProtos.Battery?> GetBatteryRawAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)

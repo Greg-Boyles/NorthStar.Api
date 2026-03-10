@@ -25,7 +25,16 @@ try
     // Add HttpClient factory
     builder.Services.AddHttpClient();
 
+    // Add Redis distributed cache
+    var redisEndpoint = builder.Configuration.GetValue<string>("REDIS_ENDPOINT") ?? "localhost:6379";
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisEndpoint;
+        options.InstanceName = "northstar:";
+    });
+
     // Register services
+    builder.Services.AddSingleton<VehicleStateCache>();
     builder.Services.AddScoped<PolestarAuthService>();
     builder.Services.AddScoped<PolestarCarService>();
     builder.Services.AddScoped<PolestarTripService>();

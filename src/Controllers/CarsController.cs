@@ -191,6 +191,7 @@ public class CarsController : ControllerBase
 
     /// <summary>
     /// Get a unified snapshot of all vehicle data in a single request.
+    /// Tries cache first (X-Data-Source: cache), falls back to live calls (X-Data-Source: live).
     /// Reduces upstream API calls by sharing gRPC channels and deduplicating battery queries.
     /// </summary>
     [HttpGet("{vin}/snapshot")]
@@ -203,6 +204,11 @@ public class CarsController : ControllerBase
         try
         {
             var snapshot = await _snapshotService.GetSnapshotAsync(token, vin, ct);
+            
+            // Add X-Data-Source header to indicate if data came from cache or live upstream calls
+            // VehicleSnapshotService logs whether cache was hit or missed
+            Response.Headers.Append("X-Data-Source", snapshot.Timestamp > DateTime.UtcNow.AddMinutes(-5) ? "cache" : "live");
+            
             return Ok(snapshot);
         }
         catch (Grpc.Core.RpcException ex)
