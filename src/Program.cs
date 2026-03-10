@@ -27,6 +27,8 @@ try
 
     // Add Redis distributed cache
     var redisEndpoint = builder.Configuration.GetValue<string>("REDIS_ENDPOINT") ?? "localhost:6379";
+    builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
+        StackExchange.Redis.ConnectionMultiplexer.Connect(redisEndpoint));
     builder.Services.AddStackExchangeRedisCache(options =>
     {
         options.Configuration = redisEndpoint;
