@@ -109,7 +109,7 @@ public class VehicleStreamManager : IDisposable
             {
                 if (response?.Battery != null)
                 {
-                    _logger.LogDebug("Battery update for VIN {Vin}: {Level}%", _vin, response.Battery.BatteryChargeLevelPercentage);
+                    _logger.LogInformation("Battery stream update for VIN {Vin}: {Level}%", _vin, response.Battery.BatteryChargeLevelPercentage);
                     
                     using var scope = _serviceProvider.CreateScope();
                     var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
@@ -145,7 +145,7 @@ public class VehicleStreamManager : IDisposable
             {
                 if (response?.Odometer != null)
                 {
-                    _logger.LogDebug("Odometer update for VIN {Vin}: {Meters}m", _vin, response.Odometer.OdometerMeters);
+                    _logger.LogInformation("Odometer stream update for VIN {Vin}: {Meters}m", _vin, response.Odometer.OdometerMeters);
                     
                     using var scope = _serviceProvider.CreateScope();
                     var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
@@ -181,7 +181,7 @@ public class VehicleStreamManager : IDisposable
             {
                 if (response?.Exterior != null)
                 {
-                    _logger.LogDebug("Exterior update for VIN {Vin}", _vin);
+                    _logger.LogInformation("Exterior stream update for VIN {Vin}", _vin);
                     
                     using var scope = _serviceProvider.CreateScope();
                     var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
@@ -243,7 +243,7 @@ public class VehicleStreamManager : IDisposable
             {
                 if (response?.Availability != null)
                 {
-                    _logger.LogDebug("Availability update for VIN {Vin}: {Status}", _vin, response.Availability.AvailabilityStatus);
+                    _logger.LogInformation("Availability stream update for VIN {Vin}: {Status}", _vin, response.Availability.AvailabilityStatus);
                     
                     using var scope = _serviceProvider.CreateScope();
                     var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();

@@ -165,6 +165,7 @@ public class VehicleStreamService : BackgroundService
             using var scope = _serviceProvider.CreateScope();
             var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
             var authService = scope.ServiceProvider.GetRequiredService<PolestarAuthService>();
+            var snapshotService = scope.ServiceProvider.GetRequiredService<VehicleSnapshotService>();
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
             // Acquire distributed lock to ensure only one task streams this VIN
@@ -183,6 +184,18 @@ public class VehicleStreamService : BackgroundService
             // Get initial access token
             var tokenResponse = await authService.RefreshTokenAsync(refreshToken);
             var accessToken = tokenResponse.AccessToken;
+
+            // Seed cache with an initial snapshot so data is available immediately
+            try
+            {
+                _logger.LogInformation("Seeding cache with initial snapshot for VIN {Vin}", vin);
+                await snapshotService.GetSnapshotAsync(accessToken, vin, ct);
+                _logger.LogInformation("Cache seeded for VIN {Vin}", vin);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to seed cache for VIN {Vin}, streams will populate it", vin);
+            }
 
             // Create and start VehicleStreamManager
             var manager = new VehicleStreamManager(
@@ -241,6 +254,7 @@ public class VehicleStreamService : BackgroundService
                 return;
             }
 
+            // Refresh to keep the token alive (Polestar may rotate refresh tokens)
             var tokenResponse = await authService.RefreshTokenAsync(refreshToken);
             
             // Update stored refresh token if rotated
@@ -254,7 +268,7 @@ public class VehicleStreamService : BackgroundService
                 manager.LastTokenRefresh = DateTimeOffset.UtcNow;
             }
 
-            _logger.LogDebug("Refreshed access token for VIN {Vin}", vin);
+            _logger.LogDebug("Refreshed token for VIN {Vin}", vin);
         }
         catch (Exception ex)
         {
