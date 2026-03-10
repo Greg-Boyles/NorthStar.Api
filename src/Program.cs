@@ -35,6 +35,7 @@ try
 
     // Register services
     builder.Services.AddSingleton<VehicleStateCache>();
+    builder.Services.AddHostedService<VehicleStreamService>();
     builder.Services.AddScoped<PolestarAuthService>();
     builder.Services.AddScoped<PolestarCarService>();
     builder.Services.AddScoped<PolestarTripService>();
