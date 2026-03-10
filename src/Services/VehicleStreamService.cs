@@ -165,7 +165,6 @@ public class VehicleStreamService : BackgroundService
             using var scope = _serviceProvider.CreateScope();
             var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
             var authService = scope.ServiceProvider.GetRequiredService<PolestarAuthService>();
-            var snapshotService = scope.ServiceProvider.GetRequiredService<VehicleSnapshotService>();
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
             // Acquire distributed lock to ensure only one task streams this VIN
@@ -185,19 +184,7 @@ public class VehicleStreamService : BackgroundService
             var tokenResponse = await authService.RefreshTokenAsync(refreshToken);
             var accessToken = tokenResponse.AccessToken;
 
-            // Seed cache with an initial snapshot so data is available immediately
-            try
-            {
-                _logger.LogInformation("Seeding cache with initial snapshot for VIN {Vin}", vin);
-                await snapshotService.GetSnapshotAsync(accessToken, vin, ct);
-                _logger.LogInformation("Cache seeded for VIN {Vin}", vin);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to seed cache for VIN {Vin}, streams will populate it", vin);
-            }
-
-            // Create and start VehicleStreamManager
+            // Create and start VehicleStreamManager immediately (don't wait for seed)
             var manager = new VehicleStreamManager(
                 vin,
                 lockValue,
@@ -208,6 +195,24 @@ public class VehicleStreamService : BackgroundService
             _activeStreams[vin] = manager;
 
             _logger.LogInformation("Streams started for VIN {Vin}", vin);
+
+            // Seed cache in the background so /start responds quickly
+            // Uses its own timeout - independent of the HTTP request
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var seedScope = _serviceProvider.CreateScope();
+                    var seedSnapshotService = seedScope.ServiceProvider.GetRequiredService<VehicleSnapshotService>();
+                    _logger.LogInformation("Seeding cache with initial snapshot for VIN {Vin}", vin);
+                    await seedSnapshotService.GetSnapshotAsync(accessToken, vin, CancellationToken.None);
+                    _logger.LogInformation("Cache seeded for VIN {Vin}", vin);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to seed cache for VIN {Vin}, streams will populate it", vin);
+                }
+            });
         }
         catch (Exception ex)
         {
