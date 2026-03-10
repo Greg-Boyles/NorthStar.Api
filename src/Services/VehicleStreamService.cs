@@ -2,7 +2,13 @@ using System.Collections.Concurrent;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Caching.Distributed;
-using StackExchange.Redis;
+using BatteryProtos = NorthStar.Api.Protos.Battery;
+using OdometerProtos = NorthStar.Api.Protos;
+using ExteriorProtos = NorthStar.Api.Protos.Exterior;
+using AvailabilityProtos = NorthStar.Api.Protos.Availability;
+using ClimateProtos = NorthStar.Api.Protos.ParkingClimatization;
+using ChronosProtos = NorthStar.Api.Protos.Chronos;
+using NorthStar.Api.Models;
 
 namespace NorthStar.Api.Services;
 
@@ -16,9 +22,10 @@ public class VehicleStreamService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<VehicleStreamService> _logger;
     private readonly ConcurrentDictionary<string, VinStreamSet> _activeStreams = new();
+    private const string C3Host = "https://cepmobtoken.eu.prod.c3.volvocars.com";
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan TokenRefreshInterval = TimeSpan.FromMinutes(4);
     private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan TokenRefreshInterval = TimeSpan.FromMinutes(4);
 
     public VehicleStreamService(
         IServiceProvider serviceProvider,
@@ -167,9 +174,28 @@ public class VehicleStreamService : BackgroundService
 
             _activeStreams[vin] = streamSet;
 
-            // Note: Actual gRPC streaming implementation would go here
-            // For now, we're just setting up the infrastructure
-            // The streams would listen for data and call cache.SetAsync() when new data arrives
+            // Create gRPC channel
+            var channel = GrpcChannel.ForAddress(C3Host);
+            var headers = new Metadata
+            {
+                { "authorization", $"Bearer {accessToken}" },
+                { "vin", vin }
+            };
+
+            // Start 8 concurrent gRPC streams
+            var streamCts = streamSet.CancellationSource.Token;
+            streamSet.StreamTasks = new List<Task>
+            {
+                StreamBatteryAsync(channel, headers, vin, streamCts),
+                StreamOdometerAsync(channel, headers, vin, streamCts),
+                StreamExteriorAsync(channel, headers, vin, streamCts),
+                StreamAvailabilityAsync(channel, headers, vin, streamCts)
+                // TODO: Add remaining 4 streams:
+                // - ParkingClimatization
+                // - GlobalChargeTimer (Chronos)
+                // - ClimateTimer (Chronos)
+                // - ClimateTimerSettings (Chronos)
+            };
 
             _logger.LogInformation("Streams started for VIN {Vin}", vin);
         }
@@ -230,4 +256,243 @@ public class VehicleStreamService : BackgroundService
             await StopStreamsForVinAsync(vin, ct);
         }
     }
+
+    private async Task StreamBatteryAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    {
+        try
+        {
+            var client = new BatteryProtos.BatteryService.BatteryServiceClient(channel);
+            var request = new BatteryProtos.GetBatteryRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
+            var call = client.GetBattery(request, headers, cancellationToken: ct);
+
+            await foreach (var response in call.ResponseStream.ReadAllAsync(ct))
+            {
+                if (response?.Battery != null)
+                {
+                    _logger.LogDebug("Battery update for VIN {Vin}: {Level}%", vin, response.Battery.BatteryChargeLevelPercentage);
+                    
+                    // Update cache with battery data
+                    using var scope = _serviceProvider.CreateScope();
+                    var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
+                    var tripService = scope.ServiceProvider.GetRequiredService<PolestarTripService>();
+                    
+                    var snapshot = await cache.GetSnapshotAsync(vin, ct) ?? new VehicleSnapshot { Vin = vin };
+                    snapshot.Battery = tripService.MapBatteryData(vin, response.Battery);
+                    snapshot.Timestamp = DateTime.UtcNow;
+                    
+                    await cache.SetSnapshotAsync(vin, snapshot, ct);
+                }
+            }
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            _logger.LogInformation("Battery stream cancelled for VIN {Vin}", vin);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Battery stream error for VIN {Vin}", vin);
+        }
+    }
+
+    private async Task StreamOdometerAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    {
+        try
+        {
+            var client = new OdometerProtos.OdometerService.OdometerServiceClient(channel);
+            var request = new OdometerProtos.GetOdometerRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
+            var call = client.GetOdometer(request, headers, cancellationToken: ct);
+
+            await foreach (var response in call.ResponseStream.ReadAllAsync(ct))
+            {
+                if (response?.Odometer != null)
+                {
+                    _logger.LogDebug("Odometer update for VIN {Vin}: {Meters}m", vin, response.Odometer.OdometerMeters);
+                    
+                    using var scope = _serviceProvider.CreateScope();
+                    var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
+                    var tripService = scope.ServiceProvider.GetRequiredService<PolestarTripService>();
+                    
+                    var snapshot = await cache.GetSnapshotAsync(vin, ct) ?? new VehicleSnapshot { Vin = vin };
+                    snapshot.Trips = tripService.MapTripData(vin, response.Odometer, null);
+                    snapshot.Timestamp = DateTime.UtcNow;
+                    
+                    await cache.SetSnapshotAsync(vin, snapshot, ct);
+                }
+            }
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            _logger.LogInformation("Odometer stream cancelled for VIN {Vin}", vin);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Odometer stream error for VIN {Vin}", vin);
+        }
+    }
+
+    private async Task StreamExteriorAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    {
+        try
+        {
+            var client = new ExteriorProtos.ExteriorService.ExteriorServiceClient(channel);
+            var request = new ExteriorProtos.GetExteriorRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
+            var call = client.GetExterior(request, headers, cancellationToken: ct);
+
+            await foreach (var response in call.ResponseStream.ReadAllAsync(ct))
+            {
+                if (response?.Exterior != null)
+                {
+                    _logger.LogDebug("Exterior update for VIN {Vin}", vin);
+                    
+                    using var scope = _serviceProvider.CreateScope();
+                    var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
+                    
+                    var snapshot = await cache.GetSnapshotAsync(vin, ct) ?? new VehicleSnapshot { Vin = vin };
+                    
+                    // Map exterior proto to ExteriorStatus model
+                    var ext = response.Exterior;
+                    var exteriorMapped = new ExteriorStatus
+                    {
+                        Timestamp = ext.Timestamp?.Seconds > 0 ? DateTimeOffset.FromUnixTimeSeconds(ext.Timestamp.Seconds).UtcDateTime : null,
+                        CentralLock = FormatLock(ext.CentralLock),
+                        TailgateLock = FormatLock(ext.TailgateLock),
+                        FrontLeftDoor = FormatOpen(ext.FrontLeftDoor),
+                        FrontRightDoor = FormatOpen(ext.FrontRightDoor),
+                        RearLeftDoor = FormatOpen(ext.RearLeftDoor),
+                        RearRightDoor = FormatOpen(ext.RearRightDoor),
+                        Hood = FormatOpen(ext.Hood),
+                        Tailgate = FormatOpen(ext.Tailgate),
+                        FrontLeftWindow = FormatOpen(ext.FrontLeftWindow),
+                        FrontRightWindow = FormatOpen(ext.FrontRightWindow),
+                        RearLeftWindow = FormatOpen(ext.RearLeftWindow),
+                        RearRightWindow = FormatOpen(ext.RearRightWindow),
+                        Sunroof = FormatOpen(ext.Sunroof),
+                        TankLid = FormatOpen(ext.TankLid),
+                        Alarm = FormatAlarm(ext.Alarm)
+                    };
+                    
+                    if (snapshot.Status == null)
+                    {
+                        snapshot.Status = new VehicleStatus { Vin = vin, Timestamp = DateTime.UtcNow };
+                    }
+                    snapshot.Status.Exterior = exteriorMapped;
+                    snapshot.Timestamp = DateTime.UtcNow;
+                    
+                    await cache.SetSnapshotAsync(vin, snapshot, ct);
+                }
+            }
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            _logger.LogInformation("Exterior stream cancelled for VIN {Vin}", vin);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exterior stream error for VIN {Vin}", vin);
+        }
+    }
+
+    private async Task StreamAvailabilityAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    {
+        try
+        {
+            var client = new AvailabilityProtos.AvailabilityService.AvailabilityServiceClient(channel);
+            var request = new AvailabilityProtos.GetAvailabilityRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
+            var call = client.GetAvailability(request, headers, cancellationToken: ct);
+
+            await foreach (var response in call.ResponseStream.ReadAllAsync(ct))
+            {
+                if (response?.Availability != null)
+                {
+                    _logger.LogDebug("Availability update for VIN {Vin}: {Status}", vin, response.Availability.AvailabilityStatus);
+                    
+                    using var scope = _serviceProvider.CreateScope();
+                    var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
+                    
+                    var snapshot = await cache.GetSnapshotAsync(vin, ct) ?? new VehicleSnapshot { Vin = vin };
+                    
+                    // Map availability proto to AvailabilityInfo model
+                    var avail = response.Availability;
+                    var availabilityMapped = new AvailabilityInfo
+                    {
+                        Timestamp = avail.Timestamp?.Seconds > 0 ? DateTimeOffset.FromUnixTimeSeconds(avail.Timestamp.Seconds).UtcDateTime : null,
+                        Status = FormatAvailabilityStatus(avail.AvailabilityStatus),
+                        UnavailableReason = FormatUnavailableReason(avail.UnavailableReason),
+                        UsageMode = FormatUsageMode(avail.UsageMode)
+                    };
+                    
+                    if (snapshot.Status == null)
+                    {
+                        snapshot.Status = new VehicleStatus { Vin = vin, Timestamp = DateTime.UtcNow };
+                    }
+                    snapshot.Status.Availability = availabilityMapped;
+                    snapshot.Timestamp = DateTime.UtcNow;
+                    
+                    await cache.SetSnapshotAsync(vin, snapshot, ct);
+                }
+            }
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            _logger.LogInformation("Availability stream cancelled for VIN {Vin}", vin);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Availability stream error for VIN {Vin}", vin);
+        }
+    }
+
+    // Formatting helpers for proto enums
+    private static string FormatLock(ExteriorProtos.LockStatus s) => s switch
+    {
+        ExteriorProtos.LockStatus.Locked => "Locked",
+        ExteriorProtos.LockStatus.Unlocked => "Unlocked",
+        _ => "Unknown"
+    };
+
+    private static string FormatOpen(ExteriorProtos.OpenStatus s) => s switch
+    {
+        ExteriorProtos.OpenStatus.Closed => "Closed",
+        ExteriorProtos.OpenStatus.Open => "Open",
+        ExteriorProtos.OpenStatus.Ajar => "Ajar",
+        _ => "Unknown"
+    };
+
+    private static string FormatAlarm(ExteriorProtos.AlarmStatus s) => s switch
+    {
+        ExteriorProtos.AlarmStatus.Idle => "Idle",
+        ExteriorProtos.AlarmStatus.Triggered => "Triggered",
+        _ => "Unknown"
+    };
+
+    private static string FormatAvailabilityStatus(AvailabilityProtos.AvailabilityStatus s) => s switch
+    {
+        AvailabilityProtos.AvailabilityStatus.Available => "Available",
+        AvailabilityProtos.AvailabilityStatus.Unavailable => "Unavailable",
+        _ => "Unknown"
+    };
+
+    private static string FormatUnavailableReason(AvailabilityProtos.UnavailableReason r) => r switch
+    {
+        AvailabilityProtos.UnavailableReason.Unspecified => "None",
+        AvailabilityProtos.UnavailableReason.NoInternet => "NoInternet",
+        AvailabilityProtos.UnavailableReason.PowerSavingMode => "PowerSavingMode",
+        AvailabilityProtos.UnavailableReason.CarInUse => "CarInUse",
+        AvailabilityProtos.UnavailableReason.OtaInstallationInProgress => "OtaInProgress",
+        AvailabilityProtos.UnavailableReason.StolenVehicleTrackingInProgress => "StolenVehicleTracking",
+        AvailabilityProtos.UnavailableReason.ServiceModeActive => "ServiceMode",
+        _ => "Unknown"
+    };
+
+    private static string FormatUsageMode(AvailabilityProtos.UsageMode m) => m switch
+    {
+        AvailabilityProtos.UsageMode.Abandoned => "Abandoned",
+        AvailabilityProtos.UsageMode.Inactive => "Inactive",
+        AvailabilityProtos.UsageMode.Convenience => "Convenience",
+        AvailabilityProtos.UsageMode.Active => "Active",
+        AvailabilityProtos.UsageMode.Driving => "Driving",
+        AvailabilityProtos.UsageMode.EngineOn => "EngineOn",
+        AvailabilityProtos.UsageMode.EngineOff => "EngineOff",
+        _ => "Unknown"
+    };
 }
