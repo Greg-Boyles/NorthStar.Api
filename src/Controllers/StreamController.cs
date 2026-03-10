@@ -10,15 +10,18 @@ public class StreamController : ControllerBase
 {
     private readonly VehicleStateCache _cache;
     private readonly PolestarAuthService _authService;
+    private readonly VehicleStreamService _streamService;
     private readonly ILogger<StreamController> _logger;
 
     public StreamController(
         VehicleStateCache cache,
         PolestarAuthService authService,
+        VehicleStreamService streamService,
         ILogger<StreamController> logger)
     {
         _cache = cache;
         _authService = authService;
+        _streamService = streamService;
         _logger = logger;
     }
 
@@ -41,6 +44,9 @@ public class StreamController : ControllerBase
             // Store refresh token and initialize lastAccess timestamp
             await _cache.SetRefreshTokenAsync(vin, request.RefreshToken);
             await _cache.UpdateLastAccessAsync(vin);
+
+            // Start background gRPC streams
+            await _streamService.StartStreamsForVinAsync(vin, request.RefreshToken, HttpContext.RequestAborted);
 
             _logger.LogInformation("Stream started for VIN {Vin}", vin);
 
