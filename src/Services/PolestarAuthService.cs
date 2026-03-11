@@ -3,11 +3,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
 
 namespace NorthStar.Api.Services;
 
-public class PolestarAuthService
+public class PolestarAuthService : IAuthService
 {
     private const string OidcProviderBaseUrl = "https://polestarid.eu.polestar.com";
     private const string OidcClientId = "l3oopkc_10";

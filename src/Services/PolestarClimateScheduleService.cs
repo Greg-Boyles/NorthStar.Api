@@ -1,11 +1,12 @@
 using Grpc.Core;
 using Grpc.Net.Client;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
 using CT = NorthStar.Api.Protos.ClimateTimer;
 
 namespace NorthStar.Api.Services;
 
-public class PolestarClimateScheduleService
+public class PolestarClimateScheduleService : IClimateScheduleService
 {
     private const string PccsHost = "https://api.pccs-prod.plstr.io";
     private readonly ILogger<PolestarClimateScheduleService> _logger;

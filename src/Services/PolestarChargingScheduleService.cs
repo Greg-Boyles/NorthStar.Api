@@ -1,11 +1,12 @@
 using Grpc.Core;
 using Grpc.Net.Client;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
 using ChronosProtos = NorthStar.Api.Protos.Chronos;
 
 namespace NorthStar.Api.Services;
 
-public class PolestarChargingScheduleService
+public class PolestarChargingScheduleService : IChargingScheduleService
 {
     private const string PccsHost = "https://api.pccs-prod.plstr.io";
     private readonly ILogger<PolestarChargingScheduleService> _logger;

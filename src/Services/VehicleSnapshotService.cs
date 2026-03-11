@@ -1,5 +1,6 @@
 using Grpc.Core;
 using Grpc.Net.Client;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
 using NorthStar.Api.Protos;
 using BatteryProtos = NorthStar.Api.Protos.Battery;
@@ -9,23 +10,23 @@ using ClimateProtos = NorthStar.Api.Protos.ParkingClimatization;
 
 namespace NorthStar.Api.Services;
 
-public class VehicleSnapshotService
+public class VehicleSnapshotService : ISnapshotService
 {
     private const string C3Host = "https://cepmobtoken.eu.prod.c3.volvocars.com";
 
-    private readonly PolestarStatusService _statusService;
-    private readonly PolestarTripService _tripService;
-    private readonly PolestarChargingScheduleService _chargingScheduleService;
-    private readonly PolestarClimateScheduleService _climateScheduleService;
-    private readonly VehicleStateCache _cache;
+    private readonly IStatusService _statusService;
+    private readonly ITripService _tripService;
+    private readonly IChargingScheduleService _chargingScheduleService;
+    private readonly IClimateScheduleService _climateScheduleService;
+    private readonly IVehicleStateCache _cache;
     private readonly ILogger<VehicleSnapshotService> _logger;
 
     public VehicleSnapshotService(
-        PolestarStatusService statusService,
-        PolestarTripService tripService,
-        PolestarChargingScheduleService chargingScheduleService,
-        PolestarClimateScheduleService climateScheduleService,
-        VehicleStateCache cache,
+        IStatusService statusService,
+        ITripService tripService,
+        IChargingScheduleService chargingScheduleService,
+        IClimateScheduleService climateScheduleService,
+        IVehicleStateCache cache,
         ILogger<VehicleSnapshotService> logger)
     {
         _statusService = statusService;
@@ -63,9 +64,9 @@ public class VehicleSnapshotService
         // C3 gRPC calls — Battery fetched once, shared across battery/trips/status
         var batteryTask = GetBatteryRawAsync(c3Channel, c3Headers, vin, cts.Token);
         var odometerTask = GetOdometerRawAsync(c3Channel, c3Headers, vin, cts.Token);
-        var exteriorTask = SafeAwait(PolestarStatusService.GetExteriorAsync(c3Channel, c3Headers, vin, cts.Token), "Exterior");
-        var availabilityTask = SafeAwait(PolestarStatusService.GetAvailabilityAsync(c3Channel, c3Headers, vin, cts.Token), "Availability");
-        var climateTask = SafeAwait(PolestarStatusService.GetClimateAsync(c3Channel, c3Headers, vin, cts.Token), "Climate");
+        var exteriorTask = SafeAwait(_statusService.GetExteriorAsync(c3Channel, c3Headers, vin, cts.Token), "Exterior");
+        var availabilityTask = SafeAwait(_statusService.GetAvailabilityAsync(c3Channel, c3Headers, vin, cts.Token), "Availability");
+        var climateTask = SafeAwait(_statusService.GetClimateAsync(c3Channel, c3Headers, vin, cts.Token), "Climate");
 
         // PCCS gRPC calls
         var chargingTask = SafeAwaitNonNull(_chargingScheduleService.GetChargingScheduleAsync(accessToken, vin, cts.Token), "ChargingSchedule");
@@ -93,7 +94,7 @@ public class VehicleSnapshotService
                 Exterior = await exteriorTask,
                 Availability = await availabilityTask,
                 Climate = await climateTask,
-                Battery = PolestarStatusService.MapBatteryStatus(batteryRaw),
+                Battery = _statusService.MapBatteryStatus(batteryRaw),
                 Health = await healthTask
             },
             ChargingSchedule = await chargingTask,

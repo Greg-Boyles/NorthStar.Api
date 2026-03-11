@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
-using NorthStar.Api.Services;
 
 namespace NorthStar.Api.Controllers;
 
@@ -8,14 +8,14 @@ namespace NorthStar.Api.Controllers;
 [Route("api/[controller]")]
 public class CarsController : ControllerBase
 {
-    private readonly PolestarCarService _carService;
-    private readonly PolestarTripService _tripService;
-    private readonly PolestarStatusService _statusService;
-    private readonly PolestarChargingScheduleService _chargingScheduleService;
-    private readonly PolestarClimateScheduleService _climateScheduleService;
-    private readonly VehicleSnapshotService _snapshotService;
+    private readonly ICarService _carService;
+    private readonly ITripService _tripService;
+    private readonly IStatusService _statusService;
+    private readonly IChargingScheduleService _chargingScheduleService;
+    private readonly IClimateScheduleService _climateScheduleService;
+    private readonly ISnapshotService _snapshotService;
 
-    public CarsController(PolestarCarService carService, PolestarTripService tripService, PolestarStatusService statusService, PolestarChargingScheduleService chargingScheduleService, PolestarClimateScheduleService climateScheduleService, VehicleSnapshotService snapshotService)
+    public CarsController(ICarService carService, ITripService tripService, IStatusService statusService, IChargingScheduleService chargingScheduleService, IClimateScheduleService climateScheduleService, ISnapshotService snapshotService)
     {
         _carService = carService;
         _tripService = tripService;

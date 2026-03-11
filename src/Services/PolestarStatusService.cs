@@ -3,8 +3,8 @@ using System.Text;
 using System.Text.Json;
 using Grpc.Core;
 using Grpc.Net.Client;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
-using NorthStar.Api.Services;
 using ExteriorProtos = NorthStar.Api.Protos.Exterior;
 using AvailabilityProtos = NorthStar.Api.Protos.Availability;
 using ClimateProtos = NorthStar.Api.Protos.ParkingClimatization;
@@ -12,7 +12,7 @@ using BatteryProtos = NorthStar.Api.Protos.Battery;
 
 namespace NorthStar.Api.Services;
 
-public class PolestarStatusService
+public class PolestarStatusService : IStatusService
 {
     private const string C3Host = "https://cepmobtoken.eu.prod.c3.volvocars.com";
     private const string GraphqlUrl = "https://pc-api.polestar.com/eu-north-1/mystar-v2/";
@@ -81,7 +81,7 @@ public class PolestarStatusService
 
     // --- Exterior ---
 
-    public static async Task<ExteriorStatus?> GetExteriorAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public async Task<ExteriorStatus?> GetExteriorAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new ExteriorProtos.ExteriorService.ExteriorServiceClient(channel);
         var request = new ExteriorProtos.GetExteriorRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -94,7 +94,7 @@ public class PolestarStatusService
 
     // --- Availability ---
 
-    public static async Task<AvailabilityInfo?> GetAvailabilityAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public async Task<AvailabilityInfo?> GetAvailabilityAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new AvailabilityProtos.AvailabilityService.AvailabilityServiceClient(channel);
         var request = new AvailabilityProtos.GetAvailabilityRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -107,7 +107,7 @@ public class PolestarStatusService
 
     // --- Climate ---
 
-    public static async Task<ClimateStatus?> GetClimateAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public async Task<ClimateStatus?> GetClimateAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new ClimateProtos.ParkingClimatizationService.ParkingClimatizationServiceClient(channel);
         var request = new ClimateProtos.GetParkingClimatizationRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -120,7 +120,7 @@ public class PolestarStatusService
 
     // --- Battery ---
 
-    public static async Task<BatteryStatus?> GetBatteryAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
+    public async Task<BatteryStatus?> GetBatteryAsync(GrpcChannel channel, Metadata headers, string vin, CancellationToken ct)
     {
         var client = new BatteryProtos.BatteryService.BatteryServiceClient(channel);
         var request = new BatteryProtos.GetBatteryRequest { Id = Guid.NewGuid().ToString(), Vin = vin };
@@ -176,7 +176,7 @@ public class PolestarStatusService
     }
 
     /// <summary>Map raw battery proto to BatteryStatus model (for status section).</summary>
-    public static BatteryStatus? MapBatteryStatus(BatteryProtos.Battery? b)
+    public BatteryStatus? MapBatteryStatus(BatteryProtos.Battery? b)
     {
         if (b == null) return null;
         return ProtoMappers.MapBatteryStatus(b);

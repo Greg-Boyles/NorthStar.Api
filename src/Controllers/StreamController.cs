@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
-using NorthStar.Api.Services;
 
 namespace NorthStar.Api.Controllers;
 
@@ -8,15 +8,15 @@ namespace NorthStar.Api.Controllers;
 [Route("api/stream")]
 public class StreamController : ControllerBase
 {
-    private readonly VehicleStateCache _cache;
-    private readonly PolestarAuthService _authService;
-    private readonly VehicleStreamService _streamService;
+    private readonly IVehicleStateCache _cache;
+    private readonly IAuthService _authService;
+    private readonly IStreamService _streamService;
     private readonly ILogger<StreamController> _logger;
 
     public StreamController(
-        VehicleStateCache cache,
-        PolestarAuthService authService,
-        VehicleStreamService streamService,
+        IVehicleStateCache cache,
+        IAuthService authService,
+        IStreamService streamService,
         ILogger<StreamController> logger)
     {
         _cache = cache;

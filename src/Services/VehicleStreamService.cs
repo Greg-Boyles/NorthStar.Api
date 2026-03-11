@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Caching.Distributed;
+using NorthStar.Api.Interfaces;
 
 namespace NorthStar.Api.Services;
 
@@ -7,7 +8,7 @@ namespace NorthStar.Api.Services;
 /// Background service that orchestrates VehicleStreamManagers for all active VINs.
 /// Handles discovery, cleanup, lock renewal, and token refresh.
 /// </summary>
-public class VehicleStreamService : BackgroundService
+public class VehicleStreamService : BackgroundService, IStreamService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<VehicleStreamService> _logger;
@@ -67,8 +68,8 @@ public class VehicleStreamService : BackgroundService
     private async Task MonitorAndManageStreamsAsync(CancellationToken ct)
     {
         using var scope = _serviceProvider.CreateScope();
-        var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
-        var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
+        var cache = scope.ServiceProvider.GetRequiredService<IVehicleStateCache>();
+        var lockService = scope.ServiceProvider.GetRequiredService<ILockService>();
 
         // Find VINs with active refresh tokens using Redis SCAN
         var activeVins = await FindActiveVinsAsync(ct);
@@ -163,8 +164,8 @@ public class VehicleStreamService : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
-            var authService = scope.ServiceProvider.GetRequiredService<PolestarAuthService>();
+            var lockService = scope.ServiceProvider.GetRequiredService<ILockService>();
+            var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
             // Acquire distributed lock to ensure only one task streams this VIN
@@ -207,8 +208,8 @@ public class VehicleStreamService : BackgroundService
         if (_activeStreams.TryRemove(vin, out var manager))
         {
             using var scope = _serviceProvider.CreateScope();
-            var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
-            var lockService = scope.ServiceProvider.GetRequiredService<RedisLockService>();
+            var cache = scope.ServiceProvider.GetRequiredService<IVehicleStateCache>();
+            var lockService = scope.ServiceProvider.GetRequiredService<ILockService>();
 
             // Stop streams
             await manager.StopStreamsAsync();
@@ -230,8 +231,8 @@ public class VehicleStreamService : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var cache = scope.ServiceProvider.GetRequiredService<VehicleStateCache>();
-            var authService = scope.ServiceProvider.GetRequiredService<PolestarAuthService>();
+            var cache = scope.ServiceProvider.GetRequiredService<IVehicleStateCache>();
+            var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
             var refreshToken = await cache.GetRefreshTokenAsync(vin, ct);
             if (refreshToken == null)
