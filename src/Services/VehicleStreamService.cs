@@ -249,12 +249,16 @@ public class VehicleStreamService : BackgroundService
                 await cache.SetRefreshTokenAsync(vin, tokenResponse.RefreshToken, ct);
             }
 
+            // Proactively recycle streams with the fresh token.
+            // The Polestar app never keeps streams open longer than ~5 min (token lifetime)
+            // because WhileSubscribed() tears them down when UI goes away.
+            // Since we run streams 24/7, we recycle them here every ~4 min.
             if (_activeStreams.TryGetValue(vin, out var manager))
             {
-                manager.LastTokenRefresh = DateTimeOffset.UtcNow;
+                await manager.UpdateTokenAsync(tokenResponse.AccessToken);
             }
 
-            _logger.LogDebug("Refreshed access token for VIN {Vin}", vin);
+            _logger.LogDebug("Refreshed token and recycled streams for VIN {Vin}", vin);
         }
         catch (Exception ex)
         {
