@@ -1,12 +1,13 @@
 using Grpc.Core;
 using Grpc.Net.Client;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
 using NorthStar.Api.Protos;
 using BatteryProtos = NorthStar.Api.Protos.Battery;
 
 namespace NorthStar.Api.Services;
 
-public class PolestarTripService
+public class PolestarTripService : ITripService
 {
     private const string C3Host = "https://cepmobtoken.eu.prod.c3.volvocars.com";
     private readonly ILogger<PolestarTripService> _logger;

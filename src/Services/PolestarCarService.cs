@@ -1,11 +1,12 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
 
 namespace NorthStar.Api.Services;
 
-public class PolestarCarService
+public class PolestarCarService : ICarService
 {
     private const string ApiUrl = "https://pc-api.polestar.com/eu-north-1/mystar-v2/";
 

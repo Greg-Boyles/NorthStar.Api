@@ -1,3 +1,4 @@
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Services;
 using Serilog;
 using Testcontainers.Redis;
@@ -54,16 +55,17 @@ try
     });
 
     // Register services
-    builder.Services.AddSingleton<RedisLockService>();
-    builder.Services.AddSingleton<VehicleStateCache>();
+    builder.Services.AddSingleton<ILockService, RedisLockService>();
+    builder.Services.AddSingleton<IVehicleStateCache, VehicleStateCache>();
+    builder.Services.AddSingleton<IStreamService>(sp => sp.GetRequiredService<VehicleStreamService>());
     builder.Services.AddHostedService<VehicleStreamService>();
-    builder.Services.AddScoped<PolestarAuthService>();
-    builder.Services.AddScoped<PolestarCarService>();
-    builder.Services.AddScoped<PolestarTripService>();
-    builder.Services.AddScoped<PolestarStatusService>();
-    builder.Services.AddScoped<PolestarChargingScheduleService>();
-    builder.Services.AddScoped<PolestarClimateScheduleService>();
-    builder.Services.AddScoped<VehicleSnapshotService>();
+    builder.Services.AddScoped<IAuthService, PolestarAuthService>();
+    builder.Services.AddScoped<ICarService, PolestarCarService>();
+    builder.Services.AddScoped<ITripService, PolestarTripService>();
+    builder.Services.AddScoped<IStatusService, PolestarStatusService>();
+    builder.Services.AddScoped<IChargingScheduleService, PolestarChargingScheduleService>();
+    builder.Services.AddScoped<IClimateScheduleService, PolestarClimateScheduleService>();
+    builder.Services.AddScoped<ISnapshotService, VehicleSnapshotService>();
 
     var app = builder.Build();
 

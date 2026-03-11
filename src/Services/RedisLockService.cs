@@ -1,3 +1,4 @@
+using NorthStar.Api.Interfaces;
 using StackExchange.Redis;
 
 namespace NorthStar.Api.Services;
@@ -6,7 +7,7 @@ namespace NorthStar.Api.Services;
 /// Service for managing distributed locks using Redis.
 /// Ensures only one task/instance can acquire a lock for a given resource.
 /// </summary>
-public class RedisLockService
+public class RedisLockService : ILockService
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisLockService> _logger;

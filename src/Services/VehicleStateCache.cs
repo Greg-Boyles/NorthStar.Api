@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
 using BatteryProtos = NorthStar.Api.Protos.Battery;
 using OdometerProtos = NorthStar.Api.Protos;
@@ -10,7 +11,7 @@ namespace NorthStar.Api.Services;
 /// Redis-backed cache for vehicle state. Stores individual fields (battery, odometer, etc.)
 /// with timestamps for ETag support and auto-expiry.
 /// </summary>
-public class VehicleStateCache
+public class VehicleStateCache : IVehicleStateCache
 {
     private readonly IDistributedCache _cache;
     private readonly ILogger<VehicleStateCache> _logger;

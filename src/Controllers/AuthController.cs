@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using NorthStar.Api.Interfaces;
 using NorthStar.Api.Models;
-using NorthStar.Api.Services;
 
 namespace NorthStar.Api.Controllers;
 
@@ -8,9 +8,9 @@ namespace NorthStar.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly PolestarAuthService _authService;
+    private readonly IAuthService _authService;
 
-    public AuthController(PolestarAuthService authService)
+    public AuthController(IAuthService authService)
     {
         _authService = authService;
     }
